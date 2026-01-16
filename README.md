@@ -56,6 +56,8 @@ That way, we can have a system in which payroll, invoices, etc are done on-chain
 
 ### Selective disclosure
 
+_(I know that CT support a auditor key to decode all transactions - but I want to avoid exactly that and make it selective + permissionless)_
+
 As mentioned before privacy is not enough since payments must still be "provable" and "audible".
 
 Reipients can generate zk receipts using Noir that allows them to selectively disclose facts aobut a private payment, e.g. "I received 500$ for invoice 123" or "I paid my invoice 9164 on date 7/7/7777".
