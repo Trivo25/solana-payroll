@@ -43,9 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { useWallet } from 'solana-wallets-vue'
-
-const { wallets, connected, publicKey, select, connect, disconnect } = useWallet()
+const { wallets, connected, publicKey, select, connect, disconnect } = useWalletSafe()
 
 async function selectWallet(walletName: string) {
   try {

@@ -35,38 +35,13 @@
           <p class="subtitle">Your private payment dashboard</p>
         </div>
 
-        <div class="cards-grid">
-          <!-- Placeholder cards -->
-          <div class="card">
-            <div class="card-icon">&#x1F4B0;</div>
-            <h3>Confidential Balance</h3>
-            <p class="card-value blur-reveal">••••••</p>
-            <p class="card-label">Hover to reveal</p>
-          </div>
-
-          <div class="card">
-            <div class="card-icon">&#x1F4E4;</div>
-            <h3>Send Payment</h3>
-            <p class="card-description">Send private payments to any Solana address</p>
-            <button class="btn btn-card" disabled>Coming Soon</button>
-          </div>
-
-          <div class="card">
-            <div class="card-icon">&#x1F4DC;</div>
-            <h3>ZK Receipts</h3>
-            <p class="card-description">Generate zero-knowledge proofs for your payments</p>
-            <button class="btn btn-card" disabled>Coming Soon</button>
-          </div>
-        </div>
       </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useWallet } from 'solana-wallets-vue'
-
-const { connected, publicKey, disconnect } = useWallet()
+const { connected, publicKey, disconnect } = useWalletSafe()
 
 function shortenAddress(address: string): string {
   if (!address) return ''
@@ -213,80 +188,4 @@ onMounted(() => {
   color: var(--text-secondary);
 }
 
-/* Cards */
-.cards-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
-}
-
-.card {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 20px;
-  padding: 2rem;
-  transition: all 0.2s ease;
-}
-
-.card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.1);
-}
-
-.card-icon {
-  font-size: 2rem;
-  margin-bottom: 1rem;
-}
-
-.card h3 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-}
-
-.card-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 0.25rem;
-}
-
-.card-label {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
-.card-description {
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-  margin-bottom: 1.5rem;
-  line-height: 1.5;
-}
-
-.btn-card {
-  width: 100%;
-  padding: 1rem;
-  background: var(--primary);
-  color: white;
-  border-radius: 12px;
-}
-
-.btn-card:disabled {
-  background: rgba(15, 23, 42, 0.1);
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
-
-/* Blur reveal effect */
-.blur-reveal {
-  filter: blur(8px);
-  transition: filter 0.3s ease;
-  cursor: pointer;
-}
-
-.card:hover .blur-reveal {
-  filter: blur(0);
-}
 </style>
