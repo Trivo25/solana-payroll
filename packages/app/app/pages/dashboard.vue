@@ -115,6 +115,17 @@
           </div>
         </ClientOnly>
 
+        <!-- qr connect section -->
+        <ClientOnly>
+          <div v-if="connected" class="qr-section">
+            <h2 class="section-title">Connect with Others</h2>
+            <QRConnect
+              :wallet-address="publicKey?.toBase58() || ''"
+              @connect="handleQRConnect"
+            />
+          </div>
+        </ClientOnly>
+
       </div>
     </main>
   </div>
@@ -240,6 +251,17 @@ function setupConfidential() {
   // 2. create token-2022 account with confidential transfer extension
   // 3. configure the account for confidential transfers
   alert('Confidential account setup coming soon!')
+}
+
+// handle qr code scan result
+async function handleQRConnect(scannedAddress: string) {
+  // todo: implement connection logic
+  // this could:
+  // 1. look up the scanned address in our database
+  // 2. create a connection/contact record
+  // 3. navigate to send payment page with recipient pre-filled
+  console.log('connecting to:', scannedAddress)
+  alert(`Ready to connect with: ${scannedAddress}\n\nConnection feature coming soon!`)
 }
 
 // check if user has an account, redirect to onboarding if not
@@ -652,6 +674,18 @@ function shortenAddress(address: string): string {
 
 .balance-card:hover .blur-hover {
   filter: blur(0);
+}
+
+/* qr section */
+.qr-section {
+  margin-top: 2rem;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
 }
 
 </style>
