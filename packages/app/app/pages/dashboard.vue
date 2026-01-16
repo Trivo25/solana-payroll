@@ -48,30 +48,37 @@ const publicKey = ref<any>(null)
 let walletDisconnect: () => Promise<void> = async () => {}
 
 onMounted(async () => {
-  // dynamic import to avoid ssr issues
-  const { initWallet, useWallet } = await import('solana-wallets-vue')
-  const {
-    PhantomWalletAdapter,
-    SolflareWalletAdapter,
-    CoinbaseWalletAdapter,
-  } = await import('@solana/wallet-adapter-wallets')
-
-  // initialize wallet if not already done
   try {
-    useWallet()
-  } catch {
-    initWallet({
-      wallets: [
-        new PhantomWalletAdapter(),
-        new SolflareWalletAdapter(),
-        new CoinbaseWalletAdapter(),
-      ],
-      autoConnect: true,
-    })
-  }
+    // dynamic import to avoid ssr issues
+    const { initWallet, useWallet } = await import('solana-wallets-vue')
 
-  try {
-    const wallet = useWallet()
+    // check if wallet is already initialized
+    let wallet
+    let needsInit = false
+    try {
+      wallet = useWallet()
+    } catch {
+      needsInit = true
+    }
+
+    // only import adapters and initialize if needed
+    if (needsInit) {
+      const {
+        PhantomWalletAdapter,
+        SolflareWalletAdapter,
+        CoinbaseWalletAdapter,
+      } = await import('@solana/wallet-adapter-wallets')
+
+      initWallet({
+        wallets: [
+          new PhantomWalletAdapter(),
+          new SolflareWalletAdapter(),
+          new CoinbaseWalletAdapter(),
+        ],
+        autoConnect: true,
+      })
+      wallet = useWallet()
+    }
 
     connected.value = wallet.connected.value
     publicKey.value = wallet.publicKey.value

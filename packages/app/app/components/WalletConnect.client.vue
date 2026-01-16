@@ -5,21 +5,21 @@
       <p>Loading wallets...</p>
     </div>
 
-    <!-- Not connected: show wallet options -->
+    <!-- not connected: show wallet options -->
     <div v-else-if="!connected" class="wallet-list">
       <button
         v-for="wallet in wallets"
-        :key="wallet.adapter.name"
+        :key="wallet.name"
         class="wallet-btn"
-        @click="selectWallet(wallet.adapter.name)"
+        @click="selectWallet(wallet.name)"
       >
         <img
-          v-if="wallet.adapter.icon"
-          :src="wallet.adapter.icon"
-          :alt="wallet.adapter.name"
+          v-if="wallet.icon"
+          :src="wallet.icon"
+          :alt="wallet.name"
           class="wallet-icon"
         />
-        <span>{{ wallet.adapter.name }}</span>
+        <span>{{ wallet.name }}</span>
         <span v-if="wallet.readyState === 'Installed'" class="installed-badge">Installed</span>
       </button>
 
@@ -28,7 +28,7 @@
       </p>
     </div>
 
-    <!-- Connected state -->
+    <!-- connected state -->
     <div v-else class="connected-state">
       <div class="connected-badge">
         <span class="status-dot"></span>
@@ -53,57 +53,71 @@ import { ref, onMounted, watch } from 'vue'
 const isReady = ref(false)
 const connected = ref(false)
 const publicKey = ref<any>(null)
-const wallets = ref<any[]>([])
+const wallets = ref<Array<{ name: string; icon: string; readyState: string }>>([])
 
 let walletSelect: (name: string) => void = () => {}
 let walletConnect: () => Promise<void> = async () => {}
 let walletDisconnect: () => Promise<void> = async () => {}
 
 onMounted(async () => {
-  // dynamic import to avoid ssr issues
-  const { initWallet, useWallet } = await import('solana-wallets-vue')
-  const {
-    PhantomWalletAdapter,
-    SolflareWalletAdapter,
-    CoinbaseWalletAdapter,
-  } = await import('@solana/wallet-adapter-wallets')
-  await import('solana-wallets-vue/styles.css')
-
-  // initialize wallet if not already done
   try {
-    useWallet()
-  } catch {
-    initWallet({
-      wallets: [
-        new PhantomWalletAdapter(),
-        new SolflareWalletAdapter(),
-        new CoinbaseWalletAdapter(),
-      ],
-      autoConnect: true,
-    })
-  }
+    // dynamic import to avoid ssr issues
+    const { initWallet, useWallet } = await import('solana-wallets-vue')
 
-  try {
-    const wallet = useWallet()
+    // check if wallet is already initialized
+    let wallet
+    let needsInit = false
+    try {
+      wallet = useWallet()
+    } catch {
+      needsInit = true
+    }
+
+    // only import adapters and initialize if needed
+    if (needsInit) {
+      const {
+        PhantomWalletAdapter,
+        SolflareWalletAdapter,
+        CoinbaseWalletAdapter,
+      } = await import('@solana/wallet-adapter-wallets')
+
+      initWallet({
+        wallets: [
+          new PhantomWalletAdapter(),
+          new SolflareWalletAdapter(),
+          new CoinbaseWalletAdapter(),
+        ],
+        autoConnect: false,
+      })
+      wallet = useWallet()
+    }
+
+    // helper to map wallet adapters to plain objects (avoids private member issues)
+    const mapWallets = (rawWallets: any[]) => {
+      return rawWallets.map(w => ({
+        name: w.adapter.name,
+        icon: w.adapter.icon,
+        readyState: w.readyState,
+      }))
+    }
 
     // set up reactive bindings
     connected.value = wallet.connected.value
     publicKey.value = wallet.publicKey.value
-    wallets.value = wallet.wallets.value
+    wallets.value = mapWallets(wallet.wallets.value || [])
 
     // watch for changes
     watch(() => wallet.connected.value, (val) => { connected.value = val })
     watch(() => wallet.publicKey.value, (val) => { publicKey.value = val })
-    watch(() => wallet.wallets.value, (val) => { wallets.value = val })
+    watch(() => wallet.wallets.value, (val) => { wallets.value = mapWallets(val || []) })
 
     // store functions
     walletSelect = wallet.select
     walletConnect = wallet.connect
     walletDisconnect = wallet.disconnect
-
-    isReady.value = true
   } catch (e) {
     console.error('failed to initialize wallet:', e)
+  } finally {
     isReady.value = true
   }
 })
