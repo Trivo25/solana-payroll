@@ -1,0 +1,7 @@
+- set up UI that allows
+  - connection with Solana Wallet
+  - Sets up Confidential transfers
+  - Sets up CT token accounts
+  - moves token into confidential account
+  - can trigger transfers
+- Set up CT and demo them
