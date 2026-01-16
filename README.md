@@ -1,5 +1,7 @@
 # Private Payroll
 
+> This project enables private payroll and invoicing on Solana by combining Confidential Transfers for hidden payments with Noir based zero-knowledge receipts for selective, verifiable disclosure.
+
 ## Problem
 
 In todays world, most if not all on-chain payments are publicly visible and let's be honest, who the heck wants everyone to know all your bank transfer details, the invoices you pay and how much salary you earn?
