@@ -51,3 +51,13 @@ without trusted intermediaries
 Payments are done using the SPL in order to ensure transfer amounts are encrypted, account balances are hidden but the network can still verify correctness of transfers. From the outside howver, observers (consensus, nodes, auditors, ..) can see that a transfer did indeed happen. But they cannot see payment amounts, salaries, revenue and more.
 
 That way, we can have a system in which payroll, invoices, etc are done on-chain in a verifable way without leaking any sensitive private data.
+
+### Selective disclosure
+
+As mentioned before privacy is not enough since payments must still be "provable" and "audible".
+
+Reipients can generate zk receipts using Noir that allows them to selectively disclose facts aobut a private payment, e.g. "I received 500$ for invoice 123" or "I paid my invoice 9164 on date 7/7/7777".
+
+These proofs are generates locally on the "clients" machine and can be verified either on-chain or off-chain (e.g. by an accountant or tax auditor). They do not reveal any balances, business relationsihps or anything else.
+
+The recipient chooses what to reveal and what not!
