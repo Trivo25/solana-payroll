@@ -9,6 +9,7 @@ export interface UserAccount {
   wallet_address: string
   name: string
   account_type: AccountType
+  profile_picture_url: string | null
   created_at: string
   updated_at: string
 }
@@ -70,7 +71,7 @@ export function useSupabase() {
   // update user account
   async function updateAccount(
     walletAddress: string,
-    updates: Partial<Pick<UserAccount, 'name' | 'account_type'>>
+    updates: Partial<Pick<UserAccount, 'name' | 'account_type' | 'profile_picture_url'>>
   ): Promise<UserAccount | null> {
     const { data, error } = await supabase!
       .from('accounts')
@@ -87,10 +88,55 @@ export function useSupabase() {
     return data as UserAccount
   }
 
+  // upload profile picture and update account
+  async function uploadProfilePicture(
+    walletAddress: string,
+    file: File
+  ): Promise<string | null> {
+    // create a unique filename
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${walletAddress}-${Date.now()}.${fileExt}`
+    const filePath = `${fileName}`
+
+    // upload to storage
+    const { error: uploadError } = await supabase!
+      .storage
+      .from('profile-pictures')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: true,
+      })
+
+    if (uploadError) {
+      console.error('failed to upload profile picture:', uploadError)
+      return null
+    }
+
+    // get public url
+    const { data: urlData } = supabase!
+      .storage
+      .from('profile-pictures')
+      .getPublicUrl(filePath)
+
+    const publicUrl = urlData.publicUrl
+
+    // update account with new profile picture url
+    const updated = await updateAccount(walletAddress, {
+      profile_picture_url: publicUrl,
+    })
+
+    if (!updated) {
+      return null
+    }
+
+    return publicUrl
+  }
+
   return {
     supabase,
     getAccount,
     createAccount,
     updateAccount,
+    uploadProfilePicture,
   }
 }

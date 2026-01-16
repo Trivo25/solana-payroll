@@ -36,12 +36,38 @@
               <h1>Loading...</h1>
             </template>
             <template v-else-if="account">
-              <h1>Welcome, {{ account.name }}</h1>
-              <p class="subtitle">
-                <span class="account-badge" :class="account.account_type">
-                  {{ account.account_type === 'employer' ? 'Employer / Business' : 'Employee / Freelancer' }}
-                </span>
-              </p>
+              <div class="welcome-content">
+                <div class="profile-picture-wrapper" @click="triggerFileInput">
+                  <img
+                    v-if="account.profile_picture_url"
+                    :src="account.profile_picture_url"
+                    alt="Profile picture"
+                    class="profile-picture"
+                  />
+                  <div v-else class="profile-picture-placeholder">
+                    {{ getInitials(account.name) }}
+                  </div>
+                  <div class="profile-picture-overlay">
+                    <span v-if="uploadingPicture" class="upload-spinner">...</span>
+                    <span v-else class="upload-icon">&#x1F4F7;</span>
+                  </div>
+                  <input
+                    ref="fileInput"
+                    type="file"
+                    accept="image/*"
+                    class="file-input"
+                    @change="handleFileChange"
+                  />
+                </div>
+                <div class="welcome-text">
+                  <h1>Welcome, {{ account.name }}</h1>
+                  <p class="subtitle">
+                    <span class="account-badge" :class="account.account_type">
+                      {{ account.account_type === 'employer' ? 'Employer / Business' : 'Employee / Freelancer' }}
+                    </span>
+                  </p>
+                </div>
+              </div>
             </template>
             <template v-else>
               <h1>Welcome to Veil</h1>
@@ -106,9 +132,61 @@ const confidentialBalance = ref<number | null>(null)
 const confidentialLoading = ref(false)
 const account = ref<UserAccount | null>(null)
 const accountLoading = ref(true)
+const uploadingPicture = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
 let walletDisconnect: () => Promise<void> = async () => {}
 
-const { getAccount } = useSupabase()
+const { getAccount, uploadProfilePicture } = useSupabase()
+
+// get initials from name for placeholder
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map(word => word[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+// trigger file input click
+function triggerFileInput() {
+  fileInput.value?.click()
+}
+
+// handle file selection
+async function handleFileChange(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || !publicKey.value) return
+
+  // validate file type
+  if (!file.type.startsWith('image/')) {
+    alert('Please select an image file')
+    return
+  }
+
+  // validate file size (max 2mb)
+  if (file.size > 2 * 1024 * 1024) {
+    alert('Image must be less than 2MB')
+    return
+  }
+
+  uploadingPicture.value = true
+  try {
+    const walletAddress = publicKey.value.toBase58()
+    const newUrl = await uploadProfilePicture(walletAddress, file)
+    if (newUrl && account.value) {
+      account.value = { ...account.value, profile_picture_url: newUrl }
+    }
+  } catch (e) {
+    console.error('failed to upload picture:', e)
+    alert('Failed to upload picture. Please try again.')
+  } finally {
+    uploadingPicture.value = false
+    // reset input
+    input.value = ''
+  }
+}
 
 // fetch sol balance for a public key
 async function fetchBalance(pubkey: any) {
@@ -376,6 +454,19 @@ function shortenAddress(address: string): string {
   margin-bottom: 3rem;
 }
 
+.welcome-content {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.welcome-text h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
 .welcome-section h1 {
   font-size: 2.5rem;
   font-weight: 700;
@@ -386,6 +477,75 @@ function shortenAddress(address: string): string {
 .subtitle {
   font-size: 1.125rem;
   color: var(--text-secondary);
+}
+
+/* profile picture */
+.profile-picture-wrapper {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.profile-picture {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.profile-picture-placeholder {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: white;
+  border: 3px solid white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.profile-picture-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.profile-picture-wrapper:hover .profile-picture-overlay {
+  opacity: 1;
+}
+
+.upload-icon {
+  font-size: 1.5rem;
+}
+
+.upload-spinner {
+  font-size: 1.25rem;
+  color: white;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.file-input {
+  display: none;
 }
 
 .account-badge {

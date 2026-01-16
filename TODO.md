@@ -5,3 +5,4 @@
   - moves token into confidential account
   - can trigger transfers
 - Set up CT and demo them
+- QR code transfers
