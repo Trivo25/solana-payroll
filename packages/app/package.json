@@ -1,0 +1,11 @@
+{
+  "name": "@solana-payroll/app",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "echo 'UI framework not yet configured'",
+    "build": "echo 'UI framework not yet configured'",
+    "test": "echo 'No tests configured'",
+    "lint": "echo 'No linting configured'"
+  }
+}
