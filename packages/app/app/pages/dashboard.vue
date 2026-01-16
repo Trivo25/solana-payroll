@@ -41,24 +41,66 @@
 </template>
 
 <script setup lang="ts">
-const { connected, publicKey, disconnect } = useWalletSafe()
+import { ref, onMounted, watch } from 'vue'
+
+const connected = ref(false)
+const publicKey = ref<any>(null)
+let walletDisconnect: () => Promise<void> = async () => {}
+
+onMounted(async () => {
+  // dynamic import to avoid ssr issues
+  const { initWallet, useWallet } = await import('solana-wallets-vue')
+  const {
+    PhantomWalletAdapter,
+    SolflareWalletAdapter,
+    CoinbaseWalletAdapter,
+  } = await import('@solana/wallet-adapter-wallets')
+
+  // initialize wallet if not already done
+  try {
+    useWallet()
+  } catch {
+    initWallet({
+      wallets: [
+        new PhantomWalletAdapter(),
+        new SolflareWalletAdapter(),
+        new CoinbaseWalletAdapter(),
+      ],
+      autoConnect: true,
+    })
+  }
+
+  try {
+    const wallet = useWallet()
+
+    connected.value = wallet.connected.value
+    publicKey.value = wallet.publicKey.value
+
+    watch(() => wallet.connected.value, (val) => { connected.value = val })
+    watch(() => wallet.publicKey.value, (val) => { publicKey.value = val })
+
+    walletDisconnect = wallet.disconnect
+
+    // redirect to connect if not connected (give time for auto-connect)
+    setTimeout(() => {
+      if (!wallet.connected.value) {
+        navigateTo('/connect')
+      }
+    }, 1000)
+  } catch (e) {
+    console.error('failed to initialize wallet:', e)
+    navigateTo('/connect')
+  }
+})
+
+function disconnect() {
+  walletDisconnect()
+}
 
 function shortenAddress(address: string): string {
   if (!address) return ''
   return `${address.slice(0, 4)}...${address.slice(-4)}`
 }
-
-// Redirect to connect if not connected
-onMounted(() => {
-  if (!connected.value) {
-    // Give some time for wallet to auto-connect
-    setTimeout(() => {
-      if (!connected.value) {
-        navigateTo('/connect')
-      }
-    }, 1000)
-  }
-})
 </script>
 
 <style scoped>

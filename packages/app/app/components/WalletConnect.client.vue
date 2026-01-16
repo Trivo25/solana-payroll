@@ -1,7 +1,12 @@
 <template>
   <div class="wallet-connect">
+    <!-- Loading state -->
+    <div v-if="!isReady" class="loading">
+      <p>Loading wallets...</p>
+    </div>
+
     <!-- Not connected: show wallet options -->
-    <div v-if="!connected" class="wallet-list">
+    <div v-else-if="!connected" class="wallet-list">
       <button
         v-for="wallet in wallets"
         :key="wallet.adapter.name"
@@ -35,7 +40,7 @@
       <NuxtLink to="/dashboard" class="btn btn-primary">
         Go to Dashboard
       </NuxtLink>
-      <button class="btn btn-disconnect" @click="disconnect">
+      <button class="btn btn-disconnect" @click="handleDisconnect">
         Disconnect
       </button>
     </div>
@@ -43,15 +48,77 @@
 </template>
 
 <script setup lang="ts">
-const { wallets, connected, publicKey, select, connect, disconnect } = useWalletSafe()
+import { ref, onMounted, watch } from 'vue'
+
+const isReady = ref(false)
+const connected = ref(false)
+const publicKey = ref<any>(null)
+const wallets = ref<any[]>([])
+
+let walletSelect: (name: string) => void = () => {}
+let walletConnect: () => Promise<void> = async () => {}
+let walletDisconnect: () => Promise<void> = async () => {}
+
+onMounted(async () => {
+  // dynamic import to avoid ssr issues
+  const { initWallet, useWallet } = await import('solana-wallets-vue')
+  const {
+    PhantomWalletAdapter,
+    SolflareWalletAdapter,
+    CoinbaseWalletAdapter,
+  } = await import('@solana/wallet-adapter-wallets')
+  await import('solana-wallets-vue/styles.css')
+
+  // initialize wallet if not already done
+  try {
+    useWallet()
+  } catch {
+    initWallet({
+      wallets: [
+        new PhantomWalletAdapter(),
+        new SolflareWalletAdapter(),
+        new CoinbaseWalletAdapter(),
+      ],
+      autoConnect: true,
+    })
+  }
+
+  try {
+    const wallet = useWallet()
+
+    // set up reactive bindings
+    connected.value = wallet.connected.value
+    publicKey.value = wallet.publicKey.value
+    wallets.value = wallet.wallets.value
+
+    // watch for changes
+    watch(() => wallet.connected.value, (val) => { connected.value = val })
+    watch(() => wallet.publicKey.value, (val) => { publicKey.value = val })
+    watch(() => wallet.wallets.value, (val) => { wallets.value = val })
+
+    // store functions
+    walletSelect = wallet.select
+    walletConnect = wallet.connect
+    walletDisconnect = wallet.disconnect
+
+    isReady.value = true
+  } catch (e) {
+    console.error('failed to initialize wallet:', e)
+    isReady.value = true
+  }
+})
 
 async function selectWallet(walletName: string) {
   try {
-    select(walletName)
-    await connect()
+    walletSelect(walletName)
+    await walletConnect()
   } catch (error) {
     console.error('Failed to connect wallet:', error)
   }
+}
+
+async function handleDisconnect() {
+  await walletDisconnect()
 }
 
 function shortenAddress(address: string): string {
@@ -61,6 +128,12 @@ function shortenAddress(address: string): string {
 </script>
 
 <style scoped>
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+}
+
 .wallet-list {
   display: flex;
   flex-direction: column;
