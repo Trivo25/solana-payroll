@@ -50,13 +50,41 @@
           </ClientOnly>
         </div>
 
-        <!-- balance card -->
+        <!-- balance cards -->
         <ClientOnly>
-          <div v-if="connected" class="balance-card">
-            <div class="balance-label">Your Balance</div>
-            <div class="balance-value">
-              <span v-if="balanceLoading" class="loading-text">Loading...</span>
-              <span v-else class="mono">{{ formatBalance(balance) }} SOL</span>
+          <div v-if="connected" class="balance-cards">
+            <!-- regular balance -->
+            <div class="balance-card">
+              <div class="balance-header">
+                <div class="balance-label">Public Balance</div>
+                <span class="balance-icon">&#x1F4B0;</span>
+              </div>
+              <div class="balance-value">
+                <span v-if="balanceLoading" class="loading-text">Loading...</span>
+                <span v-else class="mono">{{ formatBalance(balance) }} SOL</span>
+              </div>
+              <div class="balance-footer">Visible on-chain</div>
+            </div>
+
+            <!-- confidential balance -->
+            <div class="balance-card confidential">
+              <div class="balance-header">
+                <div class="balance-label">Confidential Balance</div>
+                <span class="balance-icon">&#x1F6E1;</span>
+              </div>
+              <div class="balance-value">
+                <span v-if="confidentialLoading" class="loading-text">Loading...</span>
+                <template v-else-if="confidentialBalance !== null">
+                  <span class="mono blur-hover">{{ formatBalance(confidentialBalance) }} USDC</span>
+                </template>
+                <template v-else>
+                  <span class="not-setup">Not configured</span>
+                </template>
+              </div>
+              <div class="balance-footer">
+                <span v-if="confidentialBalance !== null">Encrypted on-chain</span>
+                <button v-else class="setup-link" @click="setupConfidential">Set up confidential account</button>
+              </div>
             </div>
           </div>
         </ClientOnly>
@@ -74,6 +102,8 @@ const connected = ref(false)
 const publicKey = ref<any>(null)
 const balance = ref<number | null>(null)
 const balanceLoading = ref(false)
+const confidentialBalance = ref<number | null>(null)
+const confidentialLoading = ref(false)
 const account = ref<UserAccount | null>(null)
 const accountLoading = ref(true)
 let walletDisconnect: () => Promise<void> = async () => {}
@@ -100,6 +130,38 @@ async function fetchBalance(pubkey: any) {
 function formatBalance(bal: number | null): string {
   if (bal === null) return '—'
   return bal.toFixed(4)
+}
+
+// fetch confidential token balance
+// note: this is a placeholder - full implementation requires token-2022 confidential transfer extension
+async function fetchConfidentialBalance(pubkey: any) {
+  if (!pubkey) return
+  confidentialLoading.value = true
+  try {
+    // todo: implement actual confidential balance fetching
+    // this requires:
+    // 1. finding the user's confidential token account (token-2022 with ct extension)
+    // 2. fetching the encrypted balance
+    // 3. decrypting with user's elgamal keypair
+
+    // for now, set to null to indicate not configured
+    confidentialBalance.value = null
+  } catch (e) {
+    console.error('failed to fetch confidential balance:', e)
+    confidentialBalance.value = null
+  } finally {
+    confidentialLoading.value = false
+  }
+}
+
+// placeholder for setting up confidential account
+function setupConfidential() {
+  // todo: implement confidential account setup flow
+  // this would:
+  // 1. create/derive elgamal keypair
+  // 2. create token-2022 account with confidential transfer extension
+  // 3. configure the account for confidential transfers
+  alert('Confidential account setup coming soon!')
 }
 
 // check if user has an account, redirect to onboarding if not
@@ -156,10 +218,11 @@ onMounted(async () => {
     connected.value = wallet.connected.value
     publicKey.value = wallet.publicKey.value
 
-    // fetch balance and check account if already connected
+    // fetch balances and check account if already connected
     if (wallet.publicKey.value) {
       const address = wallet.publicKey.value.toBase58()
       fetchBalance(wallet.publicKey.value)
+      fetchConfidentialBalance(wallet.publicKey.value)
       checkAccount(address)
     }
 
@@ -169,6 +232,7 @@ onMounted(async () => {
       if (val) {
         const address = val.toBase58()
         fetchBalance(val)
+        fetchConfidentialBalance(val)
         checkAccount(address)
       }
     })
@@ -342,32 +406,92 @@ function shortenAddress(address: string): string {
   color: #3b82f6;
 }
 
-/* balance card */
+/* balance cards */
+.balance-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  max-width: 800px;
+}
+
 .balance-card {
   background: rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 20px;
-  padding: 2rem;
-  max-width: 400px;
+  padding: 1.5rem;
+}
+
+.balance-card.confidential {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(16, 185, 129, 0.05) 100%);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.balance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
 }
 
 .balance-label {
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-secondary);
-  margin-bottom: 0.5rem;
+}
+
+.balance-icon {
+  font-size: 1.5rem;
 }
 
 .balance-value {
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 700;
   color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.balance-footer {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .loading-text {
   color: var(--text-muted);
-  font-size: 1.5rem;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.not-setup {
+  color: var(--text-muted);
+  font-size: 1.25rem;
+  font-style: italic;
+}
+
+.setup-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.75rem;
+  color: var(--secondary);
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: inherit;
+}
+
+.setup-link:hover {
+  color: #059669;
+}
+
+/* blur effect for confidential balance - hover to reveal */
+.blur-hover {
+  filter: blur(6px);
+  transition: filter 0.3s ease;
+  cursor: pointer;
+}
+
+.balance-card:hover .blur-hover {
+  filter: blur(0);
 }
 
 </style>
