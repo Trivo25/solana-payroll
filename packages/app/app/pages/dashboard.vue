@@ -35,6 +35,17 @@
           <p class="subtitle">Your private payment dashboard</p>
         </div>
 
+        <!-- balance card -->
+        <ClientOnly>
+          <div v-if="connected" class="balance-card">
+            <div class="balance-label">Your Balance</div>
+            <div class="balance-value">
+              <span v-if="balanceLoading" class="loading-text">Loading...</span>
+              <span v-else class="mono">{{ formatBalance(balance) }} SOL</span>
+            </div>
+          </div>
+        </ClientOnly>
+
       </div>
     </main>
   </div>
@@ -45,7 +56,31 @@ import { ref, onMounted, watch } from 'vue'
 
 const connected = ref(false)
 const publicKey = ref<any>(null)
+const balance = ref<number | null>(null)
+const balanceLoading = ref(false)
 let walletDisconnect: () => Promise<void> = async () => {}
+
+// fetch sol balance for a public key
+async function fetchBalance(pubkey: any) {
+  if (!pubkey) return
+  balanceLoading.value = true
+  try {
+    const { Connection, clusterApiUrl, LAMPORTS_PER_SOL } = await import('@solana/web3.js')
+    const connection = new Connection(clusterApiUrl('devnet'))
+    const lamports = await connection.getBalance(pubkey)
+    balance.value = lamports / LAMPORTS_PER_SOL
+  } catch (e) {
+    console.error('failed to fetch balance:', e)
+    balance.value = null
+  } finally {
+    balanceLoading.value = false
+  }
+}
+
+function formatBalance(bal: number | null): string {
+  if (bal === null) return '—'
+  return bal.toFixed(4)
+}
 
 onMounted(async () => {
   try {
@@ -83,8 +118,16 @@ onMounted(async () => {
     connected.value = wallet.connected.value
     publicKey.value = wallet.publicKey.value
 
+    // fetch balance if already connected
+    if (wallet.publicKey.value) {
+      fetchBalance(wallet.publicKey.value)
+    }
+
     watch(() => wallet.connected.value, (val) => { connected.value = val })
-    watch(() => wallet.publicKey.value, (val) => { publicKey.value = val })
+    watch(() => wallet.publicKey.value, (val) => {
+      publicKey.value = val
+      if (val) fetchBalance(val)
+    })
 
     walletDisconnect = wallet.disconnect
 
@@ -235,6 +278,34 @@ function shortenAddress(address: string): string {
 .subtitle {
   font-size: 1.125rem;
   color: var(--text-secondary);
+}
+
+/* balance card */
+.balance-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  padding: 2rem;
+  max-width: 400px;
+}
+
+.balance-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.balance-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.loading-text {
+  color: var(--text-muted);
+  font-size: 1.5rem;
 }
 
 </style>
