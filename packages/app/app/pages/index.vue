@@ -31,10 +31,7 @@
 
         <div class="cta-group">
           <button class="btn btn-primary">
-            Launch App
-          </button>
-          <button class="btn btn-secondary">
-            Learn More
+            Start Paying Privately
           </button>
         </div>
       </div>
