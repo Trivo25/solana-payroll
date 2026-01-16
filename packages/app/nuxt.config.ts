@@ -19,5 +19,26 @@ export default defineNuxtConfig({
         }
       ]
     }
+  },
+
+  vite: {
+    define: {
+      'process.env.BROWSER': true,
+    },
+    resolve: {
+      alias: {
+        // Ensure React is resolved for wallet adapter dependencies
+        'react': 'react',
+        'react-dom': 'react-dom',
+      }
+    },
+    optimizeDeps: {
+      include: ['react', 'react-dom'],
+      esbuildOptions: {
+        define: {
+          global: 'globalThis'
+        }
+      }
+    }
   }
 })

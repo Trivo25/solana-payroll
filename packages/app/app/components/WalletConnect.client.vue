@@ -1,12 +1,30 @@
 <template>
   <div class="wallet-connect">
-    <!-- Wallet button -->
-    <div class="wallet-list">
-      <WalletMultiButton />
+    <!-- Not connected: show wallet options -->
+    <div v-if="!connected" class="wallet-list">
+      <button
+        v-for="wallet in wallets"
+        :key="wallet.adapter.name"
+        class="wallet-btn"
+        @click="selectWallet(wallet.adapter.name)"
+      >
+        <img
+          v-if="wallet.adapter.icon"
+          :src="wallet.adapter.icon"
+          :alt="wallet.adapter.name"
+          class="wallet-icon"
+        />
+        <span>{{ wallet.adapter.name }}</span>
+        <span v-if="wallet.readyState === 'Installed'" class="installed-badge">Installed</span>
+      </button>
+
+      <p v-if="wallets.length === 0" class="no-wallets">
+        No wallets found. Please install a Solana wallet.
+      </p>
     </div>
 
     <!-- Connected state -->
-    <div v-if="connected" class="connected-state">
+    <div v-else class="connected-state">
       <div class="connected-badge">
         <span class="status-dot"></span>
         <span>Connected</span>
@@ -17,14 +35,26 @@
       <NuxtLink to="/dashboard" class="btn btn-primary">
         Go to Dashboard
       </NuxtLink>
+      <button class="btn btn-disconnect" @click="disconnect">
+        Disconnect
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useWallet, WalletMultiButton } from 'solana-wallets-vue'
+import { useWallet } from 'solana-wallets-vue'
 
-const { connected, publicKey } = useWallet()
+const { wallets, connected, publicKey, select, connect, disconnect } = useWallet()
+
+async function selectWallet(walletName: string) {
+  try {
+    select(walletName)
+    await connect()
+  } catch (error) {
+    console.error('Failed to connect wallet:', error)
+  }
+}
 
 function shortenAddress(address: string): string {
   if (!address) return ''
@@ -39,10 +69,52 @@ function shortenAddress(address: string): string {
   gap: 0.75rem;
 }
 
+.wallet-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.wallet-btn:hover {
+  background: #1e293b;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.3);
+}
+
+.wallet-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.installed-badge {
+  margin-left: auto;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  background: rgba(16, 185, 129, 0.2);
+  color: var(--secondary);
+  border-radius: 4px;
+}
+
+.no-wallets {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 1rem;
+}
+
 .connected-state {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
   text-align: center;
 }
 
@@ -97,6 +169,7 @@ function shortenAddress(address: string): string {
 .btn-primary {
   background: var(--primary);
   color: white;
+  margin-bottom: 0.75rem;
 }
 
 .btn-primary:hover {
@@ -105,21 +178,16 @@ function shortenAddress(address: string): string {
   box-shadow: 0 10px 40px rgba(15, 23, 42, 0.3);
 }
 
-/* Override solana-wallets-vue button styles */
-:deep(.swv-button) {
-  width: 100% !important;
-  height: auto !important;
-  padding: 1rem 1.5rem !important;
-  font-size: 1rem !important;
-  font-weight: 600 !important;
-  border-radius: 12px !important;
-  background: var(--primary) !important;
-  color: white !important;
-  border: none !important;
-  justify-content: center !important;
+.btn-disconnect {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: 0.5rem;
 }
 
-:deep(.swv-button:hover) {
-  background: #1e293b !important;
+.btn-disconnect:hover {
+  color: #ef4444;
 }
 </style>
