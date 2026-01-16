@@ -31,8 +31,23 @@
         </header>
 
         <div class="welcome-section">
-          <h1>Welcome to Veil</h1>
-          <p class="subtitle">Your private payment dashboard</p>
+          <ClientOnly>
+            <template v-if="accountLoading">
+              <h1>Loading...</h1>
+            </template>
+            <template v-else-if="account">
+              <h1>Welcome, {{ account.name }}</h1>
+              <p class="subtitle">
+                <span class="account-badge" :class="account.account_type">
+                  {{ account.account_type === 'employer' ? 'Employer / Business' : 'Employee / Freelancer' }}
+                </span>
+              </p>
+            </template>
+            <template v-else>
+              <h1>Welcome to Veil</h1>
+              <p class="subtitle">Your private payment dashboard</p>
+            </template>
+          </ClientOnly>
         </div>
 
         <!-- balance card -->
@@ -53,12 +68,17 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
+import { useSupabase, type UserAccount } from '~/composables/useSupabase'
 
 const connected = ref(false)
 const publicKey = ref<any>(null)
 const balance = ref<number | null>(null)
 const balanceLoading = ref(false)
+const account = ref<UserAccount | null>(null)
+const accountLoading = ref(true)
 let walletDisconnect: () => Promise<void> = async () => {}
+
+const { getAccount } = useSupabase()
 
 // fetch sol balance for a public key
 async function fetchBalance(pubkey: any) {
@@ -80,6 +100,24 @@ async function fetchBalance(pubkey: any) {
 function formatBalance(bal: number | null): string {
   if (bal === null) return '—'
   return bal.toFixed(4)
+}
+
+// check if user has an account, redirect to onboarding if not
+async function checkAccount(walletAddress: string) {
+  accountLoading.value = true
+  try {
+    const existingAccount = await getAccount(walletAddress)
+    if (!existingAccount) {
+      // no account found, redirect to onboarding
+      navigateTo('/onboarding')
+      return
+    }
+    account.value = existingAccount
+  } catch (e) {
+    console.error('failed to check account:', e)
+  } finally {
+    accountLoading.value = false
+  }
 }
 
 onMounted(async () => {
@@ -118,15 +156,21 @@ onMounted(async () => {
     connected.value = wallet.connected.value
     publicKey.value = wallet.publicKey.value
 
-    // fetch balance if already connected
+    // fetch balance and check account if already connected
     if (wallet.publicKey.value) {
+      const address = wallet.publicKey.value.toBase58()
       fetchBalance(wallet.publicKey.value)
+      checkAccount(address)
     }
 
     watch(() => wallet.connected.value, (val) => { connected.value = val })
     watch(() => wallet.publicKey.value, (val) => {
       publicKey.value = val
-      if (val) fetchBalance(val)
+      if (val) {
+        const address = val.toBase58()
+        fetchBalance(val)
+        checkAccount(address)
+      }
     })
 
     walletDisconnect = wallet.disconnect
@@ -278,6 +322,24 @@ function shortenAddress(address: string): string {
 .subtitle {
   font-size: 1.125rem;
   color: var(--text-secondary);
+}
+
+.account-badge {
+  display: inline-block;
+  padding: 0.375rem 0.75rem;
+  border-radius: 100px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.account-badge.employer {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--secondary);
+}
+
+.account-badge.employee {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
 }
 
 /* balance card */
