@@ -115,6 +115,53 @@
           </div>
         </ClientOnly>
 
+        <!-- invoices section -->
+        <ClientOnly>
+          <div v-if="connected" class="invoices-section">
+            <div class="section-header">
+              <h2 class="section-title">Invoices</h2>
+              <div class="invoice-tabs">
+                <button
+                  class="invoice-tab"
+                  :class="{ active: invoiceTab === 'all' }"
+                  @click="invoiceTab = 'all'"
+                >
+                  All
+                </button>
+                <button
+                  class="invoice-tab"
+                  :class="{ active: invoiceTab === 'payable' }"
+                  @click="invoiceTab = 'payable'"
+                >
+                  To Pay
+                </button>
+                <button
+                  class="invoice-tab"
+                  :class="{ active: invoiceTab === 'receivable' }"
+                  @click="invoiceTab = 'receivable'"
+                >
+                  To Receive
+                </button>
+              </div>
+            </div>
+
+            <div v-if="filteredInvoices.length > 0" class="invoices-grid">
+              <InvoiceCard
+                v-for="invoice in filteredInvoices"
+                :key="invoice.id"
+                :invoice="invoice"
+                :wallet-address="publicKey?.toBase58() || ''"
+                @click="openInvoice"
+              />
+            </div>
+
+            <div v-else class="no-invoices">
+              <span class="no-invoices-icon">&#x1F4C4;</span>
+              <p>No invoices found</p>
+            </div>
+          </div>
+        </ClientOnly>
+
         <!-- qr connect section -->
         <ClientOnly>
           <div v-if="connected" class="qr-section">
@@ -126,14 +173,25 @@
           </div>
         </ClientOnly>
 
+        <!-- invoice modal -->
+        <InvoiceModal
+          v-if="selectedInvoice"
+          :invoice="selectedInvoice"
+          :wallet-address="publicKey?.toBase58() || ''"
+          :is-open="showInvoiceModal"
+          @close="closeInvoice"
+          @paid="handleInvoicePaid"
+        />
+
       </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useSupabase, type UserAccount } from '~/composables/useSupabase'
+import { useInvoices, type Invoice } from '~/composables/useInvoices'
 
 const connected = ref(false)
 const publicKey = ref<any>(null)
@@ -148,6 +206,51 @@ const fileInput = ref<HTMLInputElement | null>(null)
 let walletDisconnect: () => Promise<void> = async () => {}
 
 const { getAccount, uploadProfilePicture } = useSupabase()
+const { invoices, getInvoicesForWallet, getPayableInvoices, getReceivableInvoices, payInvoice } = useInvoices()
+
+// invoice state
+const invoiceTab = ref<'all' | 'payable' | 'receivable'>('all')
+const selectedInvoice = ref<Invoice | null>(null)
+const showInvoiceModal = ref(false)
+
+// filtered invoices based on selected tab
+const filteredInvoices = computed(() => {
+  const walletAddress = publicKey.value?.toBase58() || ''
+  if (!walletAddress) return []
+
+  switch (invoiceTab.value) {
+    case 'payable':
+      return getPayableInvoices(walletAddress)
+    case 'receivable':
+      return getReceivableInvoices(walletAddress)
+    default:
+      return getInvoicesForWallet(walletAddress)
+  }
+})
+
+// open invoice detail modal
+function openInvoice(invoice: Invoice) {
+  selectedInvoice.value = invoice
+  showInvoiceModal.value = true
+}
+
+// close invoice modal
+function closeInvoice() {
+  showInvoiceModal.value = false
+  selectedInvoice.value = null
+}
+
+// handle invoice paid event from modal
+async function handleInvoicePaid(invoiceId: string) {
+  const success = await payInvoice(invoiceId)
+  if (success) {
+    // refresh the selected invoice to show updated status
+    const updated = invoices.value.find(inv => inv.id === invoiceId)
+    if (updated) {
+      selectedInvoice.value = { ...updated }
+    }
+  }
+}
 
 // get initials from name for placeholder
 function getInitials(name: string): string {
@@ -686,6 +789,75 @@ function shortenAddress(address: string): string {
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 1rem;
+}
+
+/* invoices section */
+.invoices-section {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.invoice-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.invoice-tab {
+  padding: 0.5rem 1rem;
+  background: rgba(15, 23, 42, 0.05);
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.invoice-tab.active {
+  background: var(--primary);
+  color: white;
+}
+
+.invoice-tab:hover:not(.active) {
+  background: rgba(15, 23, 42, 0.1);
+}
+
+.invoices-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.no-invoices {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 16px;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.no-invoices-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+.no-invoices p {
+  color: var(--text-muted);
+  font-size: 1rem;
 }
 
 </style>
