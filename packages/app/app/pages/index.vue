@@ -30,9 +30,9 @@
         </p>
 
         <div class="cta-group">
-          <button class="btn btn-primary">
+          <NuxtLink to="/connect" class="btn btn-primary">
             Start Paying Privately
-          </button>
+          </NuxtLink>
         </div>
       </div>
     </main>
@@ -195,6 +195,7 @@
 }
 
 .btn {
+  display: inline-block;
   padding: 1rem 2rem;
   font-size: 1rem;
   font-weight: 600;
@@ -203,6 +204,7 @@
   transition: all 0.2s ease;
   border: none;
   font-family: inherit;
+  text-decoration: none;
 }
 
 .btn-primary {
