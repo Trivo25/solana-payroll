@@ -5,7 +5,6 @@ import {
   address,
   lamports,
   type Address,
-  type Lamports,
 } from '@solana/kit'
 
 // RPC endpoint
@@ -68,13 +67,14 @@ export function useSolanaKit() {
     return value
   }
 
-  // send and confirm transaction
+  // send and confirm transaction (uses legacy web3.js for compatibility)
   async function sendAndConfirmTransaction(signedTx: Uint8Array): Promise<string> {
-    const signature = await rpc.sendTransaction(signedTx, { encoding: 'base64' }).send()
-    // wait for confirmation
-    await rpc
-      .confirmTransaction(signature, { commitment: 'confirmed' })
-      .send()
+    // use legacy web3.js Connection for sending transactions
+    // since @solana/kit has stricter types
+    const { Connection } = await import('@solana/web3.js')
+    const connection = new Connection(RPC_URL, 'confirmed')
+    const signature = await connection.sendRawTransaction(signedTx)
+    await connection.confirmTransaction(signature, 'confirmed')
     return signature
   }
 
