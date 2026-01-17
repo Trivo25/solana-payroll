@@ -13,6 +13,14 @@ import {
   extension,
 } from '@solana-program/token-2022'
 
+// ZK SDK for confidential transfer proofs (WASM)
+import {
+  ElGamalKeypair,
+  ElGamalSecretKey,
+  AeKey,
+  PubkeyValidityProofData,
+} from '@solana/zk-sdk/bundler'
+
 // RPC endpoint
 const RPC_URL = 'http://localhost:8899'
 const rpc = createSolanaRpc(RPC_URL)
@@ -27,35 +35,64 @@ const TEST_VEIL_MINT = ref<string | null>(
 // simulated private balance (until ZK proofs work)
 const simulatedPrivateBalance = ref(0)
 
-// ElGamal public key
+// ElGamal keys (stored in memory for session)
 const elGamalPublicKey = ref<string | null>(null)
+const elGamalKeypairRef = ref<ElGamalKeypair | null>(null)
+const aeKeyRef = ref<AeKey | null>(null)
 
 export function useConfidentialTransferKit() {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  // derive ElGamal keypair from wallet signature
-  async function deriveElGamalKeypair(wallet: any): Promise<{ publicKey: string; privateKey: Uint8Array }> {
+  // derive ElGamal keypair from wallet signature using real zk-sdk
+  async function deriveElGamalKeypair(wallet: any): Promise<{ publicKey: Uint8Array; keypair: ElGamalKeypair; aeKey: AeKey }> {
     try {
+      // sign a deterministic message to get seed bytes
       const message = new TextEncoder().encode(
         `veil-elgamal-v1:${wallet.publicKey.toBase58()}`
       )
       const signature = await wallet.signMessage(message)
-      const privateKey = signature.slice(0, 32)
+      const seed = signature.slice(0, 32)
 
-      // hash to get public key
-      const hashBuffer = await crypto.subtle.digest('SHA-256', privateKey)
-      const publicKeyBytes = new Uint8Array(hashBuffer)
-      const publicKeyHex = Array.from(publicKeyBytes)
+      // create ElGamal secret key from seed bytes
+      const secretKey = ElGamalSecretKey.fromBytes(seed)
+      const keypair = ElGamalKeypair.fromSecretKey(secretKey)
+      const pubkey = keypair.pubkey()
+      const pubkeyBytes = pubkey.toBytes()
+
+      // create AE key for decryptable balance (derive from different part of signature)
+      const aeSeed = signature.slice(32, 48) // use next 16 bytes
+      // AeKey doesn't have fromBytes, so create a new one deterministically
+      // For now, create a random one - we'll improve this later
+      const aeKey = new AeKey()
+
+      // store in refs for later use
+      elGamalKeypairRef.value = keypair
+      aeKeyRef.value = aeKey
+
+      // store public key as hex for display
+      const pubkeyHex = Array.from(pubkeyBytes)
         .map(b => b.toString(16).padStart(2, '0'))
         .join('')
+      elGamalPublicKey.value = pubkeyHex
 
-      elGamalPublicKey.value = publicKeyHex
-      return { publicKey: publicKeyHex, privateKey }
+      console.log('derived real ElGamal keypair, pubkey:', pubkeyHex)
+
+      return { publicKey: pubkeyBytes, keypair, aeKey }
     } catch (e) {
       console.error('failed to derive elgamal keypair:', e)
       throw e
     }
+  }
+
+  // generate PubkeyValidityProof - proves the ElGamal pubkey is valid
+  function generatePubkeyValidityProof(keypair: ElGamalKeypair): Uint8Array {
+    const proofData = new PubkeyValidityProofData(keypair)
+    // verify locally before returning
+    proofData.verify()
+    const proofBytes = proofData.toBytes()
+    console.log('generated PubkeyValidityProof, size:', proofBytes.length)
+    return proofBytes
   }
 
   // helper to convert @solana-program/token-2022 instruction to legacy TransactionInstruction
