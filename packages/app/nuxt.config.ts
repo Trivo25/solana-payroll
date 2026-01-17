@@ -1,3 +1,6 @@
+import wasm from 'vite-plugin-wasm'
+import topLevelAwait from 'vite-plugin-top-level-await'
+
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
@@ -29,6 +32,10 @@ export default defineNuxtConfig({
   },
 
   vite: {
+    plugins: [
+      wasm(),
+      topLevelAwait(),
+    ],
     define: {
       'process.env.BROWSER': true,
     },
@@ -41,6 +48,7 @@ export default defineNuxtConfig({
     },
     optimizeDeps: {
       include: ['react', 'react-dom'],
+      exclude: ['@solana/zk-sdk'],
       esbuildOptions: {
         define: {
           global: 'globalThis'
