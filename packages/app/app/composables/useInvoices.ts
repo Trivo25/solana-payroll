@@ -1,29 +1,29 @@
-import { ref } from 'vue'
+import { ref } from 'vue';
 
-export type InvoiceStatus = 'pending' | 'paid' | 'overdue' | 'cancelled'
+export type InvoiceStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
 
 export interface Invoice {
   // on-chain data
-  id: string                    // unique invoice id (would be pda address on-chain)
-  sender: string                // wallet address of sender/business
-  recipient: string             // wallet address of recipient/employee
-  amount: number                // payment amount
-  mint: string                  // token mint address
-  status: InvoiceStatus         // payment status
-  createdAt: number             // unix timestamp
-  paidAt?: number               // unix timestamp when paid
-  txSignature?: string          // transaction signature if paid
+  id: string; // unique invoice id (would be pda address on-chain)
+  sender: string; // wallet address of sender/business
+  recipient: string; // wallet address of recipient/employee
+  amount: number; // payment amount
+  mint: string; // token mint address
+  status: InvoiceStatus; // payment status
+  createdAt: number; // unix timestamp
+  paidAt?: number; // unix timestamp when paid
+  txSignature?: string; // transaction signature if paid
 
   // off-chain metadata (stored in supabase or ipfs)
-  title: string                 // invoice title/description
-  description?: string          // detailed description
-  dueDate?: number              // unix timestamp
-  category?: string             // expense category
-  attachmentUrl?: string        // receipt/document url
+  title: string; // invoice title/description
+  description?: string; // detailed description
+  dueDate?: number; // unix timestamp
+  category?: string; // expense category
+  attachmentUrl?: string; // receipt/document url
 
   // zk receipt data (would be generated after payment)
-  receiptHash?: string          // hash of the zk receipt
-  proofAvailable?: boolean      // whether a zk proof can be generated
+  receiptHash?: string; // hash of the zk receipt
+  proofAvailable?: boolean; // whether a zk proof can be generated
 }
 
 // dummy invoices for development
@@ -79,11 +79,13 @@ const dummyInvoices: Invoice[] = [
     status: 'paid',
     createdAt: Date.now() - 86400000 * 10,
     paidAt: Date.now() - 86400000 * 8,
-    txSignature: '5UfDuX7x8H3kL9mN2pQ4rS6tV8wY1zA3bC5dE7fG9hJ2kL4mN6pQ8rS1tV3wY5zA7bC9dE1fG3hJ5kL7mN9pQ',
+    txSignature:
+      '5UfDuX7x8H3kL9mN2pQ4rS6tV8wY1zA3bC5dE7fG9hJ2kL4mN6pQ8rS1tV3wY5zA7bC9dE1fG3hJ5kL7mN9pQ',
     title: 'December Bonus',
     description: 'Year-end performance bonus',
     category: 'Bonus',
-    receiptHash: '0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069',
+    receiptHash:
+      '0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069',
     proofAvailable: true,
   },
   {
@@ -109,64 +111,69 @@ const dummyInvoices: Invoice[] = [
     status: 'paid',
     createdAt: Date.now() - 86400000 * 30,
     paidAt: Date.now() - 86400000 * 28,
-    txSignature: '3TfDuX7x8H3kL9mN2pQ4rS6tV8wY1zA3bC5dE7fG9hJ2kL4mN6pQ8rS1tV3wY5zA7bC9dE1fG3hJ5kL7mN9pQ',
+    txSignature:
+      '3TfDuX7x8H3kL9mN2pQ4rS6tV8wY1zA3bC5dE7fG9hJ2kL4mN6pQ8rS1tV3wY5zA7bC9dE1fG3hJ5kL7mN9pQ',
     title: 'November Salary',
     description: 'Monthly salary payment for November 2024',
     category: 'Salary',
-    receiptHash: '0x8f94c2768ff2fd64c93ed29259b2e76efd3e5c2gb4e788395beef311237ea17a',
+    receiptHash:
+      '0x8f94c2768ff2fd64c93ed29259b2e76efd3e5c2gb4e788395beef311237ea17a',
     proofAvailable: true,
   },
-]
+];
 
 export function useInvoices() {
-  const invoices = ref<Invoice[]>(dummyInvoices)
-  const loading = ref(false)
+  const invoices = ref<Invoice[]>(dummyInvoices);
+  const loading = ref(false);
 
   // get invoices for a wallet (as sender or recipient)
   function getInvoicesForWallet(walletAddress: string): Invoice[] {
     return invoices.value.filter(
-      inv => inv.sender === walletAddress || inv.recipient === walletAddress
-    )
+      (inv) => inv.sender === walletAddress || inv.recipient === walletAddress
+    );
   }
 
   // get invoices where wallet is the payer (recipient of invoice = they owe money)
   function getPayableInvoices(walletAddress: string): Invoice[] {
     return invoices.value.filter(
-      inv => inv.recipient === walletAddress && inv.status === 'pending'
-    )
+      (inv) => inv.recipient === walletAddress && inv.status === 'pending'
+    );
   }
 
   // get invoices where wallet is the receiver (sender of invoice = they are owed money)
   function getReceivableInvoices(walletAddress: string): Invoice[] {
     return invoices.value.filter(
-      inv => inv.sender === walletAddress && (inv.status === 'pending' || inv.status === 'overdue')
-    )
+      (inv) =>
+        inv.sender === walletAddress &&
+        (inv.status === 'pending' || inv.status === 'overdue')
+    );
   }
 
   // simulate paying an invoice
   async function payInvoice(invoiceId: string): Promise<boolean> {
-    loading.value = true
+    loading.value = true;
     // simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    await new Promise((resolve) => setTimeout(resolve, 1500));
 
-    const invoice = invoices.value.find(inv => inv.id === invoiceId)
+    const invoice = invoices.value.find((inv) => inv.id === invoiceId);
     if (invoice && invoice.status === 'pending') {
-      invoice.status = 'paid'
-      invoice.paidAt = Date.now()
-      invoice.txSignature = 'simulated_tx_' + Math.random().toString(36).substring(7)
-      invoice.proofAvailable = true
-      invoice.receiptHash = '0x' + Math.random().toString(16).substring(2, 66)
-      loading.value = false
-      return true
+      invoice.status = 'paid';
+      invoice.paidAt = Date.now();
+      invoice.txSignature =
+        'simulated_tx_' + Math.random().toString(36).substring(7);
+      invoice.proofAvailable = true;
+      invoice.receiptHash = '0x' + Math.random().toString(16).substring(2, 66);
+      loading.value = false;
+      return true;
     }
 
-    loading.value = false
-    return false
+    loading.value = false;
+    return false;
   }
 
   // get invoice by id
   function getInvoiceById(id: string): Invoice | undefined {
-    return invoices.value.find(inv => inv.id === id)
+    return invoices.value.find((inv) => inv.id === id);
   }
 
   return {
@@ -177,7 +184,7 @@ export function useInvoices() {
     getReceivableInvoices,
     payInvoice,
     getInvoiceById,
-  }
+  };
 }
 
 // helper to format date
@@ -186,16 +193,21 @@ export function formatDate(timestamp: number): string {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-  })
+  });
 }
 
 // helper to get status color
 export function getStatusColor(status: InvoiceStatus): string {
   switch (status) {
-    case 'paid': return '#10b981'
-    case 'pending': return '#f59e0b'
-    case 'overdue': return '#ef4444'
-    case 'cancelled': return '#6b7280'
-    default: return '#6b7280'
+    case 'paid':
+      return '#10b981';
+    case 'pending':
+      return '#f59e0b';
+    case 'overdue':
+      return '#ef4444';
+    case 'cancelled':
+      return '#6b7280';
+    default:
+      return '#6b7280';
   }
 }
