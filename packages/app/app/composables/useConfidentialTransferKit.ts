@@ -7,6 +7,7 @@ import {
 import {
   getInitializeConfidentialTransferMintInstruction,
   getInitializeMintInstruction,
+  getConfigureConfidentialTransferAccountInstruction,
   findAssociatedTokenPda,
   TOKEN_2022_PROGRAM_ADDRESS,
   getMintSize,
@@ -26,6 +27,11 @@ import {
 // RPC endpoint
 const RPC_URL = 'http://localhost:8899'
 const rpc = createSolanaRpc(RPC_URL)
+
+// ZK ElGamal Proof program address
+const ZK_ELGAMAL_PROOF_PROGRAM_ADDRESS = 'ZkE1Gama1Proof11111111111111111111111111111'
+// Instructions sysvar address
+const INSTRUCTIONS_SYSVAR_ADDRESS = 'Sysvar1nstructions1111111111111111111111111'
 
 // stored mint address - initialize from localStorage if available
 const TEST_VEIL_MINT = ref<string | null>(
@@ -112,6 +118,38 @@ export function useConfidentialTransferKit() {
     return { ciphertext: ciphertextBytes, proof: proofBytes }
   }
 
+  // create VerifyPubkeyValidity instruction for ZK ElGamal Proof program
+  async function createVerifyPubkeyValidityInstruction(proofData: Uint8Array) {
+    const { TransactionInstruction, PublicKey } = await import('@solana/web3.js')
+    // Discriminator for VerifyPubkeyValidity is 26
+    const discriminator = 26
+    const data = new Uint8Array(1 + proofData.length)
+    data[0] = discriminator
+    data.set(proofData, 1)
+
+    return new TransactionInstruction({
+      programId: new PublicKey(ZK_ELGAMAL_PROOF_PROGRAM_ADDRESS),
+      keys: [], // no accounts needed for proof verification
+      data: Buffer.from(data),
+    })
+  }
+
+  // create VerifyZeroCiphertext instruction for ZK ElGamal Proof program
+  async function createVerifyZeroCiphertextInstruction(proofData: Uint8Array) {
+    const { TransactionInstruction, PublicKey } = await import('@solana/web3.js')
+    // Discriminator for VerifyZeroCiphertext is 3
+    const discriminator = 3
+    const data = new Uint8Array(1 + proofData.length)
+    data[0] = discriminator
+    data.set(proofData, 1)
+
+    return new TransactionInstruction({
+      programId: new PublicKey(ZK_ELGAMAL_PROOF_PROGRAM_ADDRESS),
+      keys: [], // no accounts needed for proof verification
+      data: Buffer.from(data),
+    })
+  }
+
   // helper to convert @solana-program/token-2022 instruction to legacy TransactionInstruction
   async function kitInstructionToLegacy(ix: any) {
     const { TransactionInstruction, PublicKey } = await import('@solana/web3.js')
@@ -126,6 +164,91 @@ export function useConfidentialTransferKit() {
       })),
       data: Buffer.from(ix.data),
     })
+  }
+
+  // configure token account for confidential transfers (stores ElGamal key on-chain)
+  async function configureConfidentialTransferAccount(wallet: any): Promise<string> {
+    loading.value = true
+    error.value = null
+
+    try {
+      // ensure we have the keypair derived
+      if (!elGamalKeypairRef.value || !aeKeyRef.value) {
+        throw new Error('ElGamal keypair not derived. Call deriveElGamalKeypair first.')
+      }
+
+      if (!TEST_VEIL_MINT.value) {
+        throw new Error('Mint not setup')
+      }
+
+      const { Connection, Transaction, PublicKey } = await import('@solana/web3.js')
+      const splToken = await import('@solana/spl-token')
+
+      const connection = new Connection(RPC_URL, 'confirmed')
+      const mintPubkey = new PublicKey(TEST_VEIL_MINT.value)
+      const walletPubkey = wallet.publicKey
+      const token2022ProgramId = new PublicKey(TOKEN_2022_PROGRAM_ADDRESS)
+
+      // get the ATA address
+      const ata = await splToken.getAssociatedTokenAddress(
+        mintPubkey,
+        walletPubkey,
+        false,
+        token2022ProgramId
+      )
+
+      // generate proofs
+      const pubkeyProof = generatePubkeyValidityProof(elGamalKeypairRef.value)
+      const { ciphertext: zeroCiphertext, proof: zeroProof } = generateZeroBalanceProof(elGamalKeypairRef.value)
+
+      // create AE-encrypted zero balance for decryptable balance field
+      const decryptableZeroBalance = aeKeyRef.value.encrypt(0n).toBytes()
+
+      // build transaction with proof instructions FIRST
+      const transaction = new Transaction()
+
+      // 1. VerifyPubkeyValidity proof instruction
+      const verifyPubkeyIx = await createVerifyPubkeyValidityInstruction(pubkeyProof)
+      transaction.add(verifyPubkeyIx)
+
+      // 2. VerifyZeroCiphertext proof instruction
+      const verifyZeroIx = await createVerifyZeroCiphertextInstruction(zeroProof)
+      transaction.add(verifyZeroIx)
+
+      // 3. ConfigureConfidentialTransferAccount instruction
+      // proofInstructionOffset is relative to this instruction (-1 means previous instruction)
+      const configureIx = getConfigureConfidentialTransferAccountInstruction({
+        token: address(ata.toBase58()),
+        mint: address(mintPubkey.toBase58()),
+        instructionsSysvarOrContextState: address(INSTRUCTIONS_SYSVAR_ADDRESS),
+        authority: address(walletPubkey.toBase58()),
+        decryptableZeroBalance: decryptableZeroBalance,
+        maximumPendingBalanceCreditCounter: 65536n, // reasonable default
+        proofInstructionOffset: -1, // point to VerifyZeroCiphertext instruction
+      })
+      const legacyConfigureIx = await kitInstructionToLegacy(configureIx)
+      transaction.add(legacyConfigureIx)
+
+      // set transaction properties
+      const { blockhash } = await connection.getLatestBlockhash()
+      transaction.recentBlockhash = blockhash
+      transaction.feePayer = walletPubkey
+
+      // sign and send
+      const signed = await wallet.signTransaction(transaction)
+      const txid = await connection.sendRawTransaction(signed.serialize())
+      await connection.confirmTransaction(txid, 'confirmed')
+
+      console.log('Configured confidential transfer account:', ata.toBase58())
+      console.log('Transaction:', txid)
+      return txid
+    } catch (e: any) {
+      error.value = e.message || 'failed to configure account'
+      console.error('configure confidential transfer account error:', e)
+      throw e
+    } finally {
+      loading.value = false
+    }
   }
 
   // setup: create Token-2022 mint WITH confidential transfer extension
@@ -562,6 +685,7 @@ export function useConfidentialTransferKit() {
     testMint: TEST_VEIL_MINT,
     elGamalPublicKey,
     deriveElGamalKeypair,
+    configureConfidentialTransferAccount,
     setupTestMint,
     setupTokenAccount,
     mintTestTokens,
