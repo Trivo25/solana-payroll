@@ -2,29 +2,14 @@ import { ref } from 'vue'
 import {
   createSolanaRpc,
   address,
-  createTransactionMessage,
-  setTransactionMessageLifetimeUsingBlockhash,
-  setTransactionMessageFeePayerSigner,
-  appendTransactionMessageInstructions,
-  signTransactionMessageWithSigners,
-  getSignatureFromTransaction,
-  pipe,
   type Address,
-  type TransactionSigner,
-  createKeyPairSignerFromBytes,
-  generateKeyPairSigner,
 } from '@solana/kit'
 import {
   getInitializeConfidentialTransferMintInstruction,
   getInitializeMintInstruction,
-  getCreateAssociatedTokenInstruction,
-  getMintToInstruction,
-  getBurnInstruction,
   findAssociatedTokenPda,
   TOKEN_2022_PROGRAM_ADDRESS,
-  ASSOCIATED_TOKEN_PROGRAM_ADDRESS,
 } from '@solana-program/token-2022'
-import { getCreateAccountInstruction } from '@solana-program/system'
 
 // RPC endpoint
 const RPC_URL = 'http://localhost:8899'
@@ -67,26 +52,23 @@ export function useConfidentialTransferKit() {
     }
   }
 
-  // create a signer adapter from wallet-adapter
-  function createWalletSigner(wallet: any): TransactionSigner {
-    const pubkeyStr = wallet.publicKey.toBase58()
-    return {
-      address: address(pubkeyStr),
-      signTransactions: async (txs: any[]) => {
-        // the wallet adapter expects legacy Transaction objects
-        // we need to serialize and sign differently
-        const signed = []
-        for (const tx of txs) {
-          // sign with wallet adapter
-          const signedTx = await wallet.signTransaction(tx)
-          signed.push(signedTx)
-        }
-        return signed
-      },
-    } as TransactionSigner
+  // helper to convert @solana-program/token-2022 instruction to legacy TransactionInstruction
+  async function kitInstructionToLegacy(ix: any) {
+    const { TransactionInstruction, PublicKey } = await import('@solana/web3.js')
+
+    // Map account roles: 0=readonly, 1=writable, 2=signer, 3=writable+signer
+    return new TransactionInstruction({
+      programId: new PublicKey(ix.programAddress),
+      keys: ix.accounts.map((acc: any) => ({
+        pubkey: new PublicKey(acc.address),
+        isSigner: acc.role === 2 || acc.role === 3,
+        isWritable: acc.role === 1 || acc.role === 3,
+      })),
+      data: Buffer.from(ix.data),
+    })
   }
 
-  // setup: create Token-2022 mint with confidential transfer extension
+  // setup: create Token-2022 mint WITH confidential transfer extension
   async function setupTestMint(wallet: any): Promise<string> {
     loading.value = true
     error.value = null
@@ -106,115 +88,83 @@ export function useConfidentialTransferKit() {
         }
       }
 
+      const { Transaction, SystemProgram, PublicKey, Keypair, Connection } = await import('@solana/web3.js')
+
       // generate a new mint keypair
-      const mintKeypair = await generateKeyPairSigner()
-      const mintAddress = mintKeypair.address
-      const walletAddress = address(wallet.publicKey.toBase58())
-
-      // calculate space needed for mint with confidential transfer extension
-      // Mint: 82 bytes base + extension header + CT extension data
-      const MINT_SIZE = 82
-      const EXTENSION_TYPE_SIZE = 2
-      const EXTENSION_LENGTH_SIZE = 2
-      const CT_MINT_EXTENSION_SIZE = 97 // authority (32 + 1 option) + auto_approve (1) + auditor (32 + 1 option)
-      const space = MINT_SIZE + EXTENSION_TYPE_SIZE + EXTENSION_LENGTH_SIZE + CT_MINT_EXTENSION_SIZE
-
-      // get rent
-      const rentLamports = await rpc.getMinimumBalanceForRentExemption(BigInt(space)).send()
-
-      // build instructions
-      const createAccountIx = getCreateAccountInstruction({
-        payer: walletAddress,
-        newAccount: mintAddress,
-        lamports: rentLamports,
-        space: space,
-        programAddress: TOKEN_2022_PROGRAM_ADDRESS,
-      })
-
-      // initialize confidential transfer mint extension (must be before initializeMint)
-      const initCTMintIx = getInitializeConfidentialTransferMintInstruction({
-        mint: mintAddress,
-        authority: null, // no authority needed for auto-approve
-        autoApproveNewAccounts: true,
-        auditorElgamalPubkey: null, // no auditor
-      })
-
-      // initialize mint
-      const initMintIx = getInitializeMintInstruction({
-        mint: mintAddress,
-        decimals: 6,
-        mintAuthority: walletAddress,
-        freezeAuthority: walletAddress,
-      })
-
-      // get latest blockhash
-      const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
-
-      // build transaction using @solana/kit patterns
-      // Note: wallet-adapter uses legacy Transaction, so we need to build differently
-      const { Transaction, SystemProgram, PublicKey } = await import('@solana/web3.js')
-      const { createInitializeMintInstruction, createInitializeConfidentialTransferMintInstruction } = await import('@solana/spl-token')
-
-      // fallback to web3.js for now since wallet adapter expects legacy tx
-      const transaction = new Transaction()
-
-      const mintPubkey = new PublicKey(mintAddress)
-      const walletPubkey = new PublicKey(walletAddress)
+      const mintKeypair = Keypair.generate()
+      const mintPubkey = mintKeypair.publicKey
+      const mintAddr = address(mintPubkey.toBase58())
+      const walletPubkey = wallet.publicKey
+      const walletAddr = address(walletPubkey.toBase58())
       const token2022ProgramId = new PublicKey(TOKEN_2022_PROGRAM_ADDRESS)
 
-      // create account
+      // calculate space needed for mint with confidential transfer extension
+      // Mint base: 82 bytes
+      // Account type: 1 byte
+      // Extension type header: 2 bytes (type) + 2 bytes (length) = 4 bytes
+      // ConfidentialTransferMint data:
+      //   - authority: 33 bytes (1 option + 32 pubkey)
+      //   - auto_approve: 1 byte
+      //   - auditor: 33 bytes (1 option + 32 pubkey)
+      // Total CT data: 67 bytes
+      const space = 82 + 1 + 4 + 67  // = 154 bytes
+
+      const connection = new Connection(RPC_URL, 'confirmed')
+      const rentLamports = await connection.getMinimumBalanceForRentExemption(space)
+
+      // Build transaction
+      const transaction = new Transaction()
+
+      // 1. Create account instruction
       transaction.add(
         SystemProgram.createAccount({
           fromPubkey: walletPubkey,
           newAccountPubkey: mintPubkey,
           space: space,
-          lamports: Number(rentLamports),
+          lamports: rentLamports,
           programId: token2022ProgramId,
         })
       )
 
-      // NOTE: createInitializeConfidentialTransferMintInstruction doesn't exist in @solana/spl-token
-      // We need to build it manually using the new SDK's instruction builder
+      // 2. Initialize Confidential Transfer Mint extension (MUST be before InitializeMint!)
+      const initCTMintIx = getInitializeConfidentialTransferMintInstruction({
+        mint: mintAddr,
+        authority: null, // no authority needed for auto-approve
+        autoApproveNewAccounts: true,
+        auditorElgamalPubkey: null, // no auditor
+      })
+      const legacyCTIx = await kitInstructionToLegacy(initCTMintIx)
+      transaction.add(legacyCTIx)
 
-      // For now, create a basic mint without CT extension as fallback
-      // The CT extension requires manual instruction building
-      const splToken = await import('@solana/spl-token')
-      transaction.add(
-        splToken.createInitializeMintInstruction(
-          mintPubkey,
-          6,
-          walletPubkey,
-          walletPubkey,
-          token2022ProgramId
-        )
-      )
+      // 3. Initialize Mint
+      const initMintIx = getInitializeMintInstruction({
+        mint: mintAddr,
+        decimals: 6,
+        mintAuthority: walletAddr,
+        freezeAuthority: walletAddr,
+      })
+      const legacyMintIx = await kitInstructionToLegacy(initMintIx)
+      transaction.add(legacyMintIx)
 
-      transaction.recentBlockhash = latestBlockhash.blockhash
+      // Set transaction properties
+      const { blockhash } = await connection.getLatestBlockhash()
+      transaction.recentBlockhash = blockhash
       transaction.feePayer = walletPubkey
 
-      // need to sign with both wallet and mint keypair
-      // extract the keypair bytes to create a legacy Keypair
-      const { Keypair } = await import('@solana/web3.js')
-      const mintLegacyKeypair = Keypair.fromSecretKey(
-        new Uint8Array(await crypto.subtle.exportKey('raw', mintKeypair.keyPair.privateKey))
-      )
-
-      transaction.partialSign(mintLegacyKeypair)
+      // Sign with mint keypair first, then wallet
+      transaction.partialSign(mintKeypair)
       const signed = await wallet.signTransaction(transaction)
-      const txid = await (await import('@solana/web3.js')).Connection.prototype.sendRawTransaction.call(
-        new (await import('@solana/web3.js')).Connection(RPC_URL),
-        signed.serialize()
-      )
 
-      // wait for confirmation
-      const connection = new (await import('@solana/web3.js')).Connection(RPC_URL)
-      await connection.confirmTransaction(txid)
+      // Send and confirm
+      const txid = await connection.sendRawTransaction(signed.serialize())
+      await connection.confirmTransaction(txid, 'confirmed')
 
-      TEST_VEIL_MINT.value = mintAddress
-      localStorage.setItem('veil-test-mint-kit', mintAddress)
+      TEST_VEIL_MINT.value = mintPubkey.toBase58()
+      localStorage.setItem('veil-test-mint-kit', TEST_VEIL_MINT.value)
 
-      console.log('created mint:', mintAddress)
-      return mintAddress
+      console.log('Created CONFIDENTIAL TRANSFER mint:', TEST_VEIL_MINT.value)
+      console.log('Transaction:', txid)
+      return TEST_VEIL_MINT.value
     } catch (e: any) {
       error.value = e.message || 'failed to create mint'
       console.error('setup mint error:', e)
@@ -248,7 +198,6 @@ export function useConfidentialTransferKit() {
       const ataInfo = await rpc.getAccountInfo(ataAddress, { encoding: 'base64' }).send()
 
       if (!ataInfo.value) {
-        // create ATA using legacy web3.js (wallet adapter compatibility)
         const { Connection, Transaction, PublicKey } = await import('@solana/web3.js')
         const splToken = await import('@solana/spl-token')
 
@@ -381,7 +330,8 @@ export function useConfidentialTransferKit() {
     }
   }
 
-  // simulated deposit to "private" balance
+  // simulated deposit to "private" balance (burns tokens, tracks locally)
+  // NOTE: Real CT deposit requires ZK proofs not available in JS SDK
   async function depositToConfidential(wallet: any, amount: number): Promise<string | null> {
     loading.value = true
     error.value = null
@@ -406,7 +356,7 @@ export function useConfidentialTransferKit() {
         token2022ProgramId
       )
 
-      // burn to simulate deposit
+      // burn to simulate deposit to confidential balance
       const burnIx = splToken.createBurnInstruction(
         ata,
         mintPubkey,
@@ -468,7 +418,7 @@ export function useConfidentialTransferKit() {
         token2022ProgramId
       )
 
-      // mint back to simulate withdraw
+      // mint back to simulate withdraw from confidential balance
       const mintIx = splToken.createMintToInstruction(
         mintPubkey,
         ata,
