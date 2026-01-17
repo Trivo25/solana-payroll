@@ -53,9 +53,23 @@
           <span class="elgamal-label">ElGamal Public Key</span>
           <span class="elgamal-icon">&#x1F511;</span>
         </div>
-        <div v-if="elGamalPublicKey" class="elgamal-key">
-          <span class="key-value mono" :title="elGamalPublicKey">{{ shortenKey(elGamalPublicKey) }}</span>
-          <button class="copy-btn" @click="navigator.clipboard.writeText(elGamalPublicKey)">Copy</button>
+        <div v-if="elGamalPublicKey" class="elgamal-key-section">
+          <div class="elgamal-key">
+            <span class="key-value mono" :title="elGamalPublicKey">{{ shortenKey(elGamalPublicKey) }}</span>
+            <button class="copy-btn" @click="navigator.clipboard.writeText(elGamalPublicKey)">Copy</button>
+          </div>
+          <div v-if="!isAccountConfigured" class="elgamal-configure">
+            <button
+              class="btn btn-small btn-primary"
+              :disabled="configuringAccount"
+              @click="handleConfigureAccount"
+            >
+              {{ configuringAccount ? 'Configuring...' : 'Store On-Chain' }}
+            </button>
+          </div>
+          <div v-else class="elgamal-configured">
+            <span class="configured-badge">&#x2713; Stored On-Chain</span>
+          </div>
         </div>
         <div v-else class="elgamal-derive">
           <p class="derive-text">Derive your encryption key to enable private transfers</p>
@@ -158,6 +172,7 @@ const {
   testMint,
   elGamalPublicKey,
   deriveElGamalKeypair,
+  configureConfidentialTransferAccount,
   setupTestMint,
   setupTokenAccount,
   mintTestTokens,
@@ -176,6 +191,8 @@ const depositAmount = ref(0)
 const withdrawAmount = ref(0)
 const isDev = ref(true) // always true for local dev
 const derivingKey = ref(false)
+const configuringAccount = ref(false)
+const isAccountConfigured = ref(false)
 
 // format balance with 2 decimals
 function formatBalance(balance: number): string {
@@ -237,6 +254,21 @@ async function handleDeriveKey() {
     console.error('key derivation failed:', e)
   } finally {
     derivingKey.value = false
+  }
+}
+
+// configure account for confidential transfers (stores ElGamal key on-chain)
+async function handleConfigureAccount() {
+  if (!props.wallet?.publicKey) return
+
+  configuringAccount.value = true
+  try {
+    await configureConfidentialTransferAccount(props.wallet)
+    isAccountConfigured.value = true
+  } catch (e) {
+    console.error('configure account failed:', e)
+  } finally {
+    configuringAccount.value = false
   }
 }
 
@@ -446,6 +478,12 @@ onMounted(() => {
   font-size: 1rem;
 }
 
+.elgamal-key-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .elgamal-key {
   display: flex;
   align-items: center;
@@ -453,6 +491,22 @@ onMounted(() => {
   padding: 0.5rem 0.75rem;
   background: rgba(99, 102, 241, 0.1);
   border-radius: 8px;
+}
+
+.elgamal-configure {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.elgamal-configured {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.configured-badge {
+  font-size: 0.75rem;
+  color: #10b981;
+  font-weight: 500;
 }
 
 .key-value {
