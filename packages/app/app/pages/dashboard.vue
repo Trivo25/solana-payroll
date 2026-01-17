@@ -79,39 +79,21 @@
         <!-- balance cards -->
         <ClientOnly>
           <div v-if="connected" class="balance-cards">
-            <!-- regular balance -->
+            <!-- regular SOL balance -->
             <div class="balance-card">
               <div class="balance-header">
-                <div class="balance-label">Public Balance</div>
+                <div class="balance-label">SOL Balance</div>
                 <span class="balance-icon">&#x1F4B0;</span>
               </div>
               <div class="balance-value">
                 <span v-if="balanceLoading" class="loading-text">Loading...</span>
                 <span v-else class="mono">{{ formatBalance(balance) }} SOL</span>
               </div>
-              <div class="balance-footer">Visible on-chain</div>
+              <div class="balance-footer">Native token</div>
             </div>
 
-            <!-- confidential balance -->
-            <div class="balance-card confidential">
-              <div class="balance-header">
-                <div class="balance-label">Confidential Balance</div>
-                <span class="balance-icon">&#x1F6E1;</span>
-              </div>
-              <div class="balance-value">
-                <span v-if="confidentialLoading" class="loading-text">Loading...</span>
-                <template v-else-if="confidentialBalance !== null">
-                  <span class="mono blur-hover">{{ formatBalance(confidentialBalance) }} USDC</span>
-                </template>
-                <template v-else>
-                  <span class="not-setup">Not configured</span>
-                </template>
-              </div>
-              <div class="balance-footer">
-                <span v-if="confidentialBalance !== null">Encrypted on-chain</span>
-                <button v-else class="setup-link" @click="setupConfidential">Set up confidential account</button>
-              </div>
-            </div>
+            <!-- confidential balance component -->
+            <ConfidentialBalance :wallet="walletAdapter" />
           </div>
         </ClientOnly>
 
@@ -195,6 +177,7 @@ import { useInvoices, type Invoice } from '~/composables/useInvoices'
 
 const connected = ref(false)
 const publicKey = ref<any>(null)
+const walletAdapter = ref<any>(null)
 const balance = ref<number | null>(null)
 const balanceLoading = ref(false)
 const confidentialBalance = ref<number | null>(null)
@@ -420,6 +403,7 @@ onMounted(async () => {
 
     connected.value = wallet.connected.value
     publicKey.value = wallet.publicKey.value
+    walletAdapter.value = wallet
 
     // fetch balances and check account if already connected
     if (wallet.publicKey.value) {
