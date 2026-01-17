@@ -9,14 +9,20 @@ import {
   getInitializeMintInstruction,
   findAssociatedTokenPda,
   TOKEN_2022_PROGRAM_ADDRESS,
+  getMintSize,
+  extension,
 } from '@solana-program/token-2022'
 
 // RPC endpoint
 const RPC_URL = 'http://localhost:8899'
 const rpc = createSolanaRpc(RPC_URL)
 
-// stored mint address
-const TEST_VEIL_MINT = ref<string | null>(null)
+// stored mint address - initialize from localStorage if available
+const TEST_VEIL_MINT = ref<string | null>(
+  typeof localStorage !== 'undefined'
+    ? localStorage.getItem('veil-test-mint-kit')
+    : null
+)
 
 // simulated private balance (until ZK proofs work)
 const simulatedPrivateBalance = ref(0)
@@ -98,16 +104,15 @@ export function useConfidentialTransferKit() {
       const walletAddr = address(walletPubkey.toBase58())
       const token2022ProgramId = new PublicKey(TOKEN_2022_PROGRAM_ADDRESS)
 
-      // calculate space needed for mint with confidential transfer extension
-      // Mint base: 82 bytes
-      // Account type: 1 byte
-      // Extension type header: 2 bytes (type) + 2 bytes (length) = 4 bytes
-      // ConfidentialTransferMint data:
-      //   - authority: 33 bytes (1 option + 32 pubkey)
-      //   - auto_approve: 1 byte
-      //   - auditor: 33 bytes (1 option + 32 pubkey)
-      // Total CT data: 67 bytes
-      const space = 82 + 1 + 4 + 67  // = 154 bytes
+      // calculate space using the library's getMintSize helper
+      // This ensures correct space for the ConfidentialTransferMint extension
+      const ctExtension = extension('ConfidentialTransferMint', {
+        authority: null,
+        autoApproveNewAccounts: true,
+        auditorElgamalPubkey: null,
+      })
+      const space = getMintSize([ctExtension])
+      console.log('Calculated mint space with CT extension:', space)
 
       const connection = new Connection(RPC_URL, 'confirmed')
       const rentLamports = await connection.getMinimumBalanceForRentExemption(space)
@@ -132,6 +137,12 @@ export function useConfidentialTransferKit() {
         authority: null, // no authority needed for auto-approve
         autoApproveNewAccounts: true,
         auditorElgamalPubkey: null, // no auditor
+      })
+      console.log('CT Mint instruction:', {
+        programAddress: initCTMintIx.programAddress,
+        accounts: initCTMintIx.accounts,
+        dataLength: initCTMintIx.data.length,
+        dataHex: Array.from(initCTMintIx.data).map(b => b.toString(16).padStart(2, '0')).join(''),
       })
       const legacyCTIx = await kitInstructionToLegacy(initCTMintIx)
       transaction.add(legacyCTIx)
@@ -187,6 +198,24 @@ export function useConfidentialTransferKit() {
       const mintAddress = address(TEST_VEIL_MINT.value!)
       const walletAddress = address(wallet.publicKey.toBase58())
 
+      // verify mint exists before creating ATA
+      console.log('verifying mint exists:', TEST_VEIL_MINT.value)
+      let mintInfo = await rpc.getAccountInfo(mintAddress, { encoding: 'base64' }).send()
+
+      // wait for mint to be available (may need a moment after confirmation)
+      let retries = 5
+      while (!mintInfo.value && retries > 0) {
+        console.log('waiting for mint to be available...')
+        await new Promise(resolve => setTimeout(resolve, 1000))
+        mintInfo = await rpc.getAccountInfo(mintAddress, { encoding: 'base64' }).send()
+        retries--
+      }
+
+      if (!mintInfo.value) {
+        throw new Error('Mint account not found after creation')
+      }
+      console.log('mint verified, account size:', mintInfo.value.data.length)
+
       // find ATA
       const [ataAddress] = await findAssociatedTokenPda({
         mint: mintAddress,
@@ -201,7 +230,7 @@ export function useConfidentialTransferKit() {
         const { Connection, Transaction, PublicKey } = await import('@solana/web3.js')
         const splToken = await import('@solana/spl-token')
 
-        const connection = new Connection(RPC_URL)
+        const connection = new Connection(RPC_URL, 'confirmed')
         const mintPubkey = new PublicKey(mintAddress)
         const walletPubkey = new PublicKey(walletAddress)
         const token2022ProgramId = new PublicKey(TOKEN_2022_PROGRAM_ADDRESS)
@@ -228,7 +257,7 @@ export function useConfidentialTransferKit() {
 
         const signed = await wallet.signTransaction(tx)
         const txid = await connection.sendRawTransaction(signed.serialize())
-        await connection.confirmTransaction(txid)
+        await connection.confirmTransaction(txid, 'confirmed')
 
         console.log('created token account:', ata.toBase58())
         return ata.toBase58()
@@ -269,6 +298,14 @@ export function useConfidentialTransferKit() {
         token2022ProgramId
       )
 
+      console.log('mintTestTokens debug:', {
+        mint: mintPubkey.toBase58(),
+        ata: ata.toBase58(),
+        authority: walletPubkey.toBase58(),
+        amount: amount * 1_000_000,
+        programId: token2022ProgramId.toBase58(),
+      })
+
       const mintIx = splToken.createMintToInstruction(
         mintPubkey,
         ata,
@@ -277,6 +314,12 @@ export function useConfidentialTransferKit() {
         [],
         token2022ProgramId
       )
+
+      console.log('mintIx accounts:', mintIx.keys.map(k => ({
+        pubkey: k.pubkey.toBase58(),
+        isSigner: k.isSigner,
+        isWritable: k.isWritable,
+      })))
 
       const tx = new Transaction().add(mintIx)
       const { blockhash } = await connection.getLatestBlockhash()
