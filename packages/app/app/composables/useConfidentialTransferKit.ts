@@ -17,8 +17,10 @@ import {
 import {
   ElGamalKeypair,
   ElGamalSecretKey,
+  ElGamalPubkey,
   AeKey,
   PubkeyValidityProofData,
+  ZeroCiphertextProofData,
 } from '@solana/zk-sdk/bundler'
 
 // RPC endpoint
@@ -93,6 +95,21 @@ export function useConfidentialTransferKit() {
     const proofBytes = proofData.toBytes()
     console.log('generated PubkeyValidityProof, size:', proofBytes.length)
     return proofBytes
+  }
+
+  // generate ZeroCiphertextProof - proves the initial balance ciphertext encrypts zero
+  function generateZeroBalanceProof(keypair: ElGamalKeypair): { ciphertext: Uint8Array; proof: Uint8Array } {
+    const pubkey = keypair.pubkey()
+    // encrypt zero to get the initial balance ciphertext
+    const zeroCiphertext = pubkey.encryptU64(0n)
+    // create proof that this ciphertext encrypts zero
+    const proofData = new ZeroCiphertextProofData(keypair, zeroCiphertext)
+    // verify locally before returning
+    proofData.verify()
+    const proofBytes = proofData.toBytes()
+    const ciphertextBytes = zeroCiphertext.toBytes()
+    console.log('generated ZeroCiphertextProof, ciphertext size:', ciphertextBytes.length, 'proof size:', proofBytes.length)
+    return { ciphertext: ciphertextBytes, proof: proofBytes }
   }
 
   // helper to convert @solana-program/token-2022 instruction to legacy TransactionInstruction
