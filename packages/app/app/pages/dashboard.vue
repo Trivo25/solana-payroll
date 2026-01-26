@@ -87,21 +87,41 @@
         <!-- balance cards -->
         <ClientOnly>
           <div v-if="connected" class="balance-cards">
-            <!-- regular SOL balance -->
+            <!-- wallet balances (SOL + USDC) -->
             <div class="balance-card">
               <div class="balance-header">
-                <div class="balance-label">SOL Balance</div>
+                <div class="balance-label">Wallet Balance</div>
                 <span class="balance-icon">&#x1F4B0;</span>
               </div>
-              <div class="balance-value">
-                <span v-if="balanceLoading" class="loading-text"
-                  >Loading...</span
-                >
-                <span v-else class="mono"
-                  >{{ formatBalance(balance) }} SOL</span
-                >
+              <div class="balance-rows">
+                <!-- SOL balance -->
+                <div class="balance-row">
+                  <span class="token-icon">◎</span>
+                  <div class="balance-info">
+                    <span v-if="balanceLoading" class="loading-text"
+                      >Loading...</span
+                    >
+                    <span v-else class="balance-amount mono"
+                      >{{ formatBalance(balance) }}</span
+                    >
+                    <span class="token-symbol">SOL</span>
+                  </div>
+                </div>
+                <!-- USDC balance -->
+                <div class="balance-row">
+                  <span class="token-icon usdc">$</span>
+                  <div class="balance-info">
+                    <span v-if="usdcLoading" class="loading-text"
+                      >Loading...</span
+                    >
+                    <span v-else class="balance-amount mono"
+                      >{{ formatUsdcBalance(usdcBalance) }}</span
+                    >
+                    <span class="token-symbol">USDC</span>
+                  </div>
+                </div>
               </div>
-              <div class="balance-footer">Native token</div>
+              <div class="balance-footer">Native & stablecoin</div>
             </div>
 
             <!-- confidential balance component -->
@@ -191,6 +211,11 @@ const publicKey = ref<any>(null);
 const walletAdapter = ref<any>(null);
 const balance = ref<number | null>(null);
 const balanceLoading = ref(false);
+const usdcBalance = ref<number | null>(null);
+const usdcLoading = ref(false);
+
+// USDC mint address (mainnet)
+const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const confidentialBalance = ref<number | null>(null);
 const confidentialLoading = ref(false);
 const account = ref<UserAccount | null>(null);
@@ -321,9 +346,50 @@ async function fetchBalance(pubkey: any) {
   }
 }
 
+// fetch USDC token balance for a public key
+async function fetchUsdcBalance(pubkey: any) {
+  if (!pubkey) return;
+  usdcLoading.value = true;
+  try {
+    const { Connection, PublicKey } = await import('@solana/web3.js');
+    const { getAssociatedTokenAddress, getAccount } = await import(
+      '@solana/spl-token'
+    );
+    const connection = new Connection(RPC_URL);
+    const mintPubkey = new PublicKey(USDC_MINT);
+
+    // get the associated token account address
+    const ataAddress = await getAssociatedTokenAddress(mintPubkey, pubkey);
+
+    try {
+      // fetch the token account
+      const tokenAccount = await getAccount(connection, ataAddress);
+      // USDC has 6 decimals
+      usdcBalance.value = Number(tokenAccount.amount) / 1_000_000;
+    } catch (e: any) {
+      // token account doesn't exist - user has no USDC
+      if (e.name === 'TokenAccountNotFoundError') {
+        usdcBalance.value = 0;
+      } else {
+        throw e;
+      }
+    }
+  } catch (e) {
+    console.error('failed to fetch USDC balance:', e);
+    usdcBalance.value = null;
+  } finally {
+    usdcLoading.value = false;
+  }
+}
+
 function formatBalance(bal: number | null): string {
   if (bal === null) return '—';
   return bal.toFixed(4);
+}
+
+function formatUsdcBalance(bal: number | null): string {
+  if (bal === null) return '—';
+  return bal.toFixed(2);
 }
 
 // fetch confidential token balance
@@ -430,6 +496,7 @@ onMounted(async () => {
     if (wallet.publicKey.value) {
       const address = wallet.publicKey.value.toBase58();
       fetchBalance(wallet.publicKey.value);
+      fetchUsdcBalance(wallet.publicKey.value);
       fetchConfidentialBalance(wallet.publicKey.value);
       checkAccount(address);
     }
@@ -447,6 +514,7 @@ onMounted(async () => {
         if (val) {
           const address = val.toBase58();
           fetchBalance(val);
+          fetchUsdcBalance(val);
           fetchConfidentialBalance(val);
           checkAccount(address);
         }
@@ -760,6 +828,55 @@ function shortenAddress(address: string): string {
   font-weight: 700;
   color: var(--text-primary);
   margin-bottom: 0.5rem;
+}
+
+.balance-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.balance-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.token-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #9945ff 0%, #14f195 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.token-icon.usdc {
+  background: linear-gradient(135deg, #2775ca 0%, #3b93dc 100%);
+}
+
+.balance-info {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.balance-amount {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.token-symbol {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
 }
 
 .balance-footer {
