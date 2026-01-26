@@ -605,7 +605,6 @@ onMounted(() => {
   border: 1px solid rgba(16, 185, 129, 0.2);
   border-radius: 20px;
   padding: 1.25rem;
-  overflow: hidden;
 }
 
 .balance-header {
