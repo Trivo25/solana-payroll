@@ -31,7 +31,10 @@
               <span class="balance-value mono">{{ formatBalance(solPublicBalance, 4) }}</span>
             </div>
             <div class="balance-row confidential">
-              <span class="balance-type">Private</span>
+              <span class="balance-type">
+                Private
+                <span class="info-icon" data-tooltip="Private balances are only visible to you by default">!</span>
+              </span>
               <span class="balance-value mono blur-hover">{{ formatBalance(solConfidentialBalance, 4) }}</span>
             </div>
           </div>
@@ -67,7 +70,10 @@
               <span class="balance-value mono">{{ formatBalance(usdcPublicBalance, 2) }}</span>
             </div>
             <div class="balance-row confidential">
-              <span class="balance-type">Private</span>
+              <span class="balance-type">
+                Private
+                <span class="info-icon" data-tooltip="Private balances are only visible to you by default">!</span>
+              </span>
               <span class="balance-value mono blur-hover">{{ formatBalance(usdcConfidentialBalance, 2) }}</span>
             </div>
           </div>
@@ -725,8 +731,69 @@ onMounted(() => {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-muted);
-  width: 38px;
+  width: 50px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.2);
+  color: #6366f1;
+  font-size: 0.5rem;
+  font-weight: 700;
+  font-style: normal;
+  cursor: help;
+  position: relative;
+}
+
+.info-icon::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.5rem 0.75rem;
+  background: var(--text-primary, #0f172a);
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: nowrap;
+  border-radius: 6px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.info-icon::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: var(--text-primary, #0f172a);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, visibility 0.2s;
+  z-index: 100;
+}
+
+.info-icon:hover::after,
+.info-icon:hover::before {
+  opacity: 1;
+  visibility: visible;
 }
 
 .balance-value {
