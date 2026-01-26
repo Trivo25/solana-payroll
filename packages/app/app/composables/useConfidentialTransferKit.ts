@@ -1,785 +1,507 @@
+/**
+ * MOCKED Confidential Transfer Kit
+ *
+ * This is a mocked version of the confidential transfer composable.
+ * All interactions are simulated with dummy data.
+ * TODO: Replace with real implementations
+ */
+
 import { ref } from 'vue';
-import { createSolanaRpc, address, type Address } from '@solana/kit';
-import {
-  getInitializeConfidentialTransferMintInstruction,
-  getInitializeMintInstruction,
-  getConfigureConfidentialTransferAccountInstruction,
-  findAssociatedTokenPda,
-  TOKEN_2022_PROGRAM_ADDRESS,
-  getMintSize,
-  extension,
-} from '@solana-program/token-2022';
 
-// ZK SDK for confidential transfer proofs (WASM)
-import {
-  ElGamalKeypair,
-  ElGamalSecretKey,
-  ElGamalPubkey,
-  AeKey,
-  PubkeyValidityProofData,
-  ZeroCiphertextProofData,
-} from '@solana/zk-sdk/bundler';
+// ============================================
+// MOCK STATE
+// ============================================
 
-// RPC endpoint
-const RPC_URL = 'http://localhost:8899';
-const rpc = createSolanaRpc(RPC_URL);
+const loading = ref(false);
+const error = ref<string | null>(null);
 
-// ZK ElGamal Proof program address
-const ZK_ELGAMAL_PROOF_PROGRAM_ADDRESS =
-  'ZkE1Gama1Proof11111111111111111111111111111';
-// Instructions sysvar address
-const INSTRUCTIONS_SYSVAR_ADDRESS =
-  'Sysvar1nstructions1111111111111111111111111';
-
-// stored mint address - initialize from localStorage if available
-const TEST_VEIL_MINT = ref<string | null>(
-  typeof localStorage !== 'undefined'
-    ? localStorage.getItem('veil-test-mint-kit')
-    : null
-);
-
-// simulated private balance (until ZK proofs work)
-const simulatedPrivateBalance = ref(0);
-
-// ElGamal keys (stored in memory for session)
+// Mock ElGamal public key (displayed in UI)
 const elGamalPublicKey = ref<string | null>(null);
-const elGamalKeypairRef = ref<ElGamalKeypair | null>(null);
-const aeKeyRef = ref<AeKey | null>(null);
+
+// Mock mint address
+const testMint = ref<string | null>(null);
+
+// Mock balances (stored in localStorage for persistence)
+const STORAGE_KEYS = {
+  elgamalPubkey: (wallet: string) => `veil-mock-elgamal-${wallet}`,
+  solPublicBalance: (wallet: string) => `veil-mock-sol-public-${wallet}`,
+  solPrivateBalance: (wallet: string) => `veil-mock-sol-private-${wallet}`,
+  usdcPublicBalance: (wallet: string) => `veil-mock-usdc-public-${wallet}`,
+  usdcPrivateBalance: (wallet: string) => `veil-mock-usdc-private-${wallet}`,
+  isConfigured: (wallet: string) => `veil-mock-configured-${wallet}`,
+  mintAddress: 'veil-mock-mint',
+};
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function generateMockPublicKey(): string {
+  // Generate a random hex string that looks like an ElGamal public key
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function generateMockTxSignature(): string {
+  // Generate a random base58-like string for transaction signature
+  const chars =
+    '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  let result = '';
+  for (let i = 0; i < 88; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
+function getWalletAddress(wallet: any): string | null {
+  if (!wallet?.publicKey) return null;
+  return typeof wallet.publicKey === 'string'
+    ? wallet.publicKey
+    : wallet.publicKey.toBase58?.() || wallet.publicKey.toString();
+}
+
+// ============================================
+// MOCKED COMPOSABLE
+// ============================================
 
 export function useConfidentialTransferKit() {
-  const loading = ref(false);
-  const error = ref<string | null>(null);
+  /**
+   * MOCK: Derive ElGamal Keypair
+   * Simulates deriving an encryption keypair from the wallet
+   */
+  async function deriveElGamalKeypair(wallet: any): Promise<void> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) {
+      throw new Error('Wallet not connected');
+    }
 
-  // get or create ElGamal keypair for wallet
-  async function deriveElGamalKeypair(
-    wallet: any
-  ): Promise<{ publicKey: Uint8Array; keypair: ElGamalKeypair; aeKey: AeKey }> {
+    loading.value = true;
+    error.value = null;
+
     try {
-      const walletAddress = wallet.publicKey.toBase58();
-      const storageKey = `veil-elgamal-${walletAddress}`;
-      const aeStorageKey = `veil-aekey-${walletAddress}`;
+      // Simulate derivation delay
+      await delay(500);
 
-      let keypair: ElGamalKeypair;
-      let aeKey: AeKey;
+      // Check if we already have a stored pubkey
+      const storedPubkey = localStorage.getItem(
+        STORAGE_KEYS.elgamalPubkey(walletAddress)
+      );
 
-      // try to load existing keypair from localStorage
-      const storedSecret = localStorage.getItem(storageKey);
-      const storedAeKey = localStorage.getItem(aeStorageKey);
-
-      if (storedSecret && storedAeKey) {
-        // restore from stored bytes
-        const secretBytes = new Uint8Array(JSON.parse(storedSecret));
-        const aeKeyBytes = new Uint8Array(JSON.parse(storedAeKey));
-        const secretKey = ElGamalSecretKey.fromBytes(secretBytes);
-        keypair = ElGamalKeypair.fromSecretKey(secretKey);
-        aeKey = AeKey.fromBytes(aeKeyBytes);
-        console.log('restored ElGamal keypair from storage');
+      if (storedPubkey) {
+        elGamalPublicKey.value = storedPubkey;
+        console.log('[MOCK] Restored ElGamal pubkey:', storedPubkey.slice(0, 16) + '...');
       } else {
-        // generate new random keypair
-        keypair = new ElGamalKeypair();
-        aeKey = new AeKey();
-
-        // persist to localStorage
-        const secretBytes = keypair.secret().toBytes();
-        const aeKeyBytes = aeKey.toBytes();
+        // Generate new mock pubkey
+        const newPubkey = generateMockPublicKey();
         localStorage.setItem(
-          storageKey,
-          JSON.stringify(Array.from(secretBytes))
+          STORAGE_KEYS.elgamalPubkey(walletAddress),
+          newPubkey
         );
-        localStorage.setItem(
-          aeStorageKey,
-          JSON.stringify(Array.from(aeKeyBytes))
-        );
-        console.log('generated new ElGamal keypair and saved to storage');
+        elGamalPublicKey.value = newPubkey;
+        console.log('[MOCK] Generated new ElGamal pubkey:', newPubkey.slice(0, 16) + '...');
       }
-
-      const pubkey = keypair.pubkey();
-      const pubkeyBytes = pubkey.toBytes();
-
-      // store in refs for later use
-      elGamalKeypairRef.value = keypair;
-      aeKeyRef.value = aeKey;
-
-      // store public key as hex for display
-      const pubkeyHex = Array.from(pubkeyBytes)
-        .map((b) => b.toString(16).padStart(2, '0'))
-        .join('');
-      elGamalPublicKey.value = pubkeyHex;
-
-      console.log('ElGamal pubkey:', pubkeyHex);
-
-      return { publicKey: pubkeyBytes, keypair, aeKey };
-    } catch (e) {
-      console.error('failed to derive elgamal keypair:', e);
-      throw e;
-    }
-  }
-
-  // generate PubkeyValidityProof - proves the ElGamal pubkey is valid
-  function generatePubkeyValidityProof(keypair: ElGamalKeypair): Uint8Array {
-    const proofData = new PubkeyValidityProofData(keypair);
-    // verify locally before returning
-    proofData.verify();
-    const proofBytes = proofData.toBytes();
-    console.log('generated PubkeyValidityProof, size:', proofBytes.length);
-    return proofBytes;
-  }
-
-  // generate ZeroCiphertextProof - proves the initial balance ciphertext encrypts zero
-  function generateZeroBalanceProof(keypair: ElGamalKeypair): {
-    ciphertext: Uint8Array;
-    proof: Uint8Array;
-  } {
-    const pubkey = keypair.pubkey();
-    // encrypt zero to get the initial balance ciphertext
-    const zeroCiphertext = pubkey.encryptU64(0n);
-    // create proof that this ciphertext encrypts zero
-    const proofData = new ZeroCiphertextProofData(keypair, zeroCiphertext);
-    // verify locally before returning
-    proofData.verify();
-    const proofBytes = proofData.toBytes();
-    const ciphertextBytes = zeroCiphertext.toBytes();
-    console.log(
-      'generated ZeroCiphertextProof, ciphertext size:',
-      ciphertextBytes.length,
-      'proof size:',
-      proofBytes.length
-    );
-    return { ciphertext: ciphertextBytes, proof: proofBytes };
-  }
-
-  // create VerifyPubkeyValidity instruction for ZK ElGamal Proof program
-  async function createVerifyPubkeyValidityInstruction(proofData: Uint8Array) {
-    const { TransactionInstruction, PublicKey } = await import(
-      '@solana/web3.js'
-    );
-    // Discriminator for VerifyPubkeyValidity is 26
-    const discriminator = 26;
-    const data = new Uint8Array(1 + proofData.length);
-    data[0] = discriminator;
-    data.set(proofData, 1);
-
-    return new TransactionInstruction({
-      programId: new PublicKey(ZK_ELGAMAL_PROOF_PROGRAM_ADDRESS),
-      keys: [], // no accounts needed for proof verification
-      data: Buffer.from(data),
-    });
-  }
-
-  // create VerifyZeroCiphertext instruction for ZK ElGamal Proof program
-  async function createVerifyZeroCiphertextInstruction(proofData: Uint8Array) {
-    const { TransactionInstruction, PublicKey } = await import(
-      '@solana/web3.js'
-    );
-    // Discriminator for VerifyZeroCiphertext is 3
-    const discriminator = 3;
-    const data = new Uint8Array(1 + proofData.length);
-    data[0] = discriminator;
-    data.set(proofData, 1);
-
-    return new TransactionInstruction({
-      programId: new PublicKey(ZK_ELGAMAL_PROOF_PROGRAM_ADDRESS),
-      keys: [], // no accounts needed for proof verification
-      data: Buffer.from(data),
-    });
-  }
-
-  // helper to convert @solana-program/token-2022 instruction to legacy TransactionInstruction
-  async function kitInstructionToLegacy(ix: any) {
-    const { TransactionInstruction, PublicKey } = await import(
-      '@solana/web3.js'
-    );
-
-    // Map account roles: 0=readonly, 1=writable, 2=signer, 3=writable+signer
-    return new TransactionInstruction({
-      programId: new PublicKey(ix.programAddress),
-      keys: ix.accounts.map((acc: any) => ({
-        pubkey: new PublicKey(acc.address),
-        isSigner: acc.role === 2 || acc.role === 3,
-        isWritable: acc.role === 1 || acc.role === 3,
-      })),
-      data: Buffer.from(ix.data),
-    });
-  }
-
-  // configure token account for confidential transfers (stores ElGamal key on-chain)
-  async function configureConfidentialTransferAccount(
-    wallet: any
-  ): Promise<string> {
-    loading.value = true;
-    error.value = null;
-
-    try {
-      // ensure we have the keypair derived
-      if (!elGamalKeypairRef.value || !aeKeyRef.value) {
-        throw new Error(
-          'ElGamal keypair not derived. Call deriveElGamalKeypair first.'
-        );
-      }
-
-      if (!TEST_VEIL_MINT.value) {
-        throw new Error('Mint not setup');
-      }
-
-      const { Connection, Transaction, PublicKey } = await import(
-        '@solana/web3.js'
-      );
-      const splToken = await import('@solana/spl-token');
-
-      const connection = new Connection(RPC_URL, 'confirmed');
-      const mintPubkey = new PublicKey(TEST_VEIL_MINT.value);
-      const walletPubkey = wallet.publicKey;
-      const token2022ProgramId = new PublicKey(TOKEN_2022_PROGRAM_ADDRESS);
-
-      // get the ATA address
-      const ata = await splToken.getAssociatedTokenAddress(
-        mintPubkey,
-        walletPubkey,
-        false,
-        token2022ProgramId
-      );
-
-      // generate proofs
-      const pubkeyProof = generatePubkeyValidityProof(elGamalKeypairRef.value);
-      const { ciphertext: zeroCiphertext, proof: zeroProof } =
-        generateZeroBalanceProof(elGamalKeypairRef.value);
-
-      // create AE-encrypted zero balance for decryptable balance field
-      const decryptableZeroBalance = aeKeyRef.value.encrypt(0n).toBytes();
-
-      // build transaction with proof instructions FIRST
-      const transaction = new Transaction();
-
-      // 1. VerifyPubkeyValidity proof instruction
-      const verifyPubkeyIx = await createVerifyPubkeyValidityInstruction(
-        pubkeyProof
-      );
-      transaction.add(verifyPubkeyIx);
-
-      // 2. VerifyZeroCiphertext proof instruction
-      const verifyZeroIx = await createVerifyZeroCiphertextInstruction(
-        zeroProof
-      );
-      transaction.add(verifyZeroIx);
-
-      // 3. ConfigureConfidentialTransferAccount instruction
-      // proofInstructionOffset is relative to this instruction (-1 means previous instruction)
-      const configureIx = getConfigureConfidentialTransferAccountInstruction({
-        token: address(ata.toBase58()),
-        mint: address(mintPubkey.toBase58()),
-        instructionsSysvarOrContextState: address(INSTRUCTIONS_SYSVAR_ADDRESS),
-        authority: address(walletPubkey.toBase58()),
-        decryptableZeroBalance: decryptableZeroBalance,
-        maximumPendingBalanceCreditCounter: 65536n, // reasonable default
-        proofInstructionOffset: -1, // point to VerifyZeroCiphertext instruction
-      });
-      const legacyConfigureIx = await kitInstructionToLegacy(configureIx);
-      transaction.add(legacyConfigureIx);
-
-      // set transaction properties
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = walletPubkey;
-
-      // sign and send
-      const signed = await wallet.signTransaction(transaction);
-      const txid = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(txid, 'confirmed');
-
-      console.log('Configured confidential transfer account:', ata.toBase58());
-      console.log('Transaction:', txid);
-      return txid;
     } catch (e: any) {
-      error.value = e.message || 'failed to configure account';
-      console.error('configure confidential transfer account error:', e);
+      error.value = e.message || 'Failed to derive keypair';
       throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  // setup: create Token-2022 mint WITH confidential transfer extension
+  /**
+   * MOCK: Setup Test Mint
+   * Simulates creating a Token-2022 mint with confidential transfer extension
+   */
   async function setupTestMint(wallet: any): Promise<string> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) {
+      throw new Error('Wallet not connected');
+    }
+
     loading.value = true;
     error.value = null;
 
     try {
-      // check if we already have a mint
-      const storedMint = localStorage.getItem('veil-test-mint-kit');
-      if (storedMint) {
-        try {
-          const info = await rpc
-            .getAccountInfo(address(storedMint), { encoding: 'base64' })
-            .send();
-          if (info.value) {
-            TEST_VEIL_MINT.value = storedMint;
-            return storedMint;
-          }
-        } catch {
-          localStorage.removeItem('veil-test-mint-kit');
-        }
+      // Simulate transaction delay
+      await delay(1000);
+
+      // Check if mint already exists
+      let mintAddress = localStorage.getItem(STORAGE_KEYS.mintAddress);
+
+      if (!mintAddress) {
+        // Generate mock mint address
+        mintAddress = generateMockTxSignature().slice(0, 44);
+        localStorage.setItem(STORAGE_KEYS.mintAddress, mintAddress);
       }
 
-      const { Transaction, SystemProgram, PublicKey, Keypair, Connection } =
-        await import('@solana/web3.js');
+      testMint.value = mintAddress;
+      console.log('[MOCK] Test mint setup:', mintAddress);
 
-      // generate a new mint keypair
-      const mintKeypair = Keypair.generate();
-      const mintPubkey = mintKeypair.publicKey;
-      const mintAddr = address(mintPubkey.toBase58());
-      const walletPubkey = wallet.publicKey;
-      const walletAddr = address(walletPubkey.toBase58());
-      const token2022ProgramId = new PublicKey(TOKEN_2022_PROGRAM_ADDRESS);
+      // Initialize mock balances if not exist
+      if (!localStorage.getItem(STORAGE_KEYS.solPublicBalance(walletAddress))) {
+        localStorage.setItem(STORAGE_KEYS.solPublicBalance(walletAddress), '0');
+      }
+      if (!localStorage.getItem(STORAGE_KEYS.solPrivateBalance(walletAddress))) {
+        localStorage.setItem(STORAGE_KEYS.solPrivateBalance(walletAddress), '0');
+      }
+      if (!localStorage.getItem(STORAGE_KEYS.usdcPublicBalance(walletAddress))) {
+        localStorage.setItem(STORAGE_KEYS.usdcPublicBalance(walletAddress), '0');
+      }
+      if (!localStorage.getItem(STORAGE_KEYS.usdcPrivateBalance(walletAddress))) {
+        localStorage.setItem(STORAGE_KEYS.usdcPrivateBalance(walletAddress), '0');
+      }
 
-      // calculate space using the library's getMintSize helper
-      // This ensures correct space for the ConfidentialTransferMint extension
-      const ctExtension = extension('ConfidentialTransferMint', {
-        authority: null,
-        autoApproveNewAccounts: true,
-        auditorElgamalPubkey: null,
-      });
-      const space = getMintSize([ctExtension]);
-      console.log('Calculated mint space with CT extension:', space);
-
-      const connection = new Connection(RPC_URL, 'confirmed');
-      const rentLamports = await connection.getMinimumBalanceForRentExemption(
-        space
-      );
-
-      // Build transaction
-      const transaction = new Transaction();
-
-      // 1. Create account instruction
-      transaction.add(
-        SystemProgram.createAccount({
-          fromPubkey: walletPubkey,
-          newAccountPubkey: mintPubkey,
-          space: space,
-          lamports: rentLamports,
-          programId: token2022ProgramId,
-        })
-      );
-
-      // 2. Initialize Confidential Transfer Mint extension (MUST be before InitializeMint!)
-      const initCTMintIx = getInitializeConfidentialTransferMintInstruction({
-        mint: mintAddr,
-        authority: null, // no authority needed for auto-approve
-        autoApproveNewAccounts: true,
-        auditorElgamalPubkey: null, // no auditor
-      });
-      console.log('CT Mint instruction:', {
-        programAddress: initCTMintIx.programAddress,
-        accounts: initCTMintIx.accounts,
-        dataLength: initCTMintIx.data.length,
-        dataHex: Array.from(initCTMintIx.data)
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join(''),
-      });
-      const legacyCTIx = await kitInstructionToLegacy(initCTMintIx);
-      transaction.add(legacyCTIx);
-
-      // 3. Initialize Mint
-      const initMintIx = getInitializeMintInstruction({
-        mint: mintAddr,
-        decimals: 6,
-        mintAuthority: walletAddr,
-        freezeAuthority: walletAddr,
-      });
-      const legacyMintIx = await kitInstructionToLegacy(initMintIx);
-      transaction.add(legacyMintIx);
-
-      // Set transaction properties
-      const { blockhash } = await connection.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = walletPubkey;
-
-      // Sign with mint keypair first, then wallet
-      transaction.partialSign(mintKeypair);
-      const signed = await wallet.signTransaction(transaction);
-
-      // Send and confirm
-      const txid = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(txid, 'confirmed');
-
-      TEST_VEIL_MINT.value = mintPubkey.toBase58();
-      localStorage.setItem('veil-test-mint-kit', TEST_VEIL_MINT.value);
-
-      console.log('Created CONFIDENTIAL TRANSFER mint:', TEST_VEIL_MINT.value);
-      console.log('Transaction:', txid);
-      return TEST_VEIL_MINT.value;
+      return mintAddress;
     } catch (e: any) {
-      error.value = e.message || 'failed to create mint';
-      console.error('setup mint error:', e);
+      error.value = e.message || 'Failed to setup mint';
       throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  // setup token account
+  /**
+   * MOCK: Setup Token Account
+   * Simulates creating an Associated Token Account
+   */
   async function setupTokenAccount(wallet: any): Promise<string> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) {
+      throw new Error('Wallet not connected');
+    }
+
     loading.value = true;
     error.value = null;
 
     try {
-      if (!TEST_VEIL_MINT.value) {
-        await setupTestMint(wallet);
-      }
+      // Simulate transaction delay
+      await delay(800);
 
-      const mintAddress = address(TEST_VEIL_MINT.value!);
-      const walletAddress = address(wallet.publicKey.toBase58());
-
-      // verify mint exists before creating ATA
-      console.log('verifying mint exists:', TEST_VEIL_MINT.value);
-      let mintInfo = await rpc
-        .getAccountInfo(mintAddress, { encoding: 'base64' })
-        .send();
-
-      // wait for mint to be available (may need a moment after confirmation)
-      let retries = 5;
-      while (!mintInfo.value && retries > 0) {
-        console.log('waiting for mint to be available...');
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        mintInfo = await rpc
-          .getAccountInfo(mintAddress, { encoding: 'base64' })
-          .send();
-        retries--;
-      }
-
-      if (!mintInfo.value) {
-        throw new Error('Mint account not found after creation');
-      }
-      console.log('mint verified, account size:', mintInfo.value.data.length);
-
-      // find ATA
-      const [ataAddress] = await findAssociatedTokenPda({
-        mint: mintAddress,
-        owner: walletAddress,
-        tokenProgram: TOKEN_2022_PROGRAM_ADDRESS,
-      });
-
-      // check if exists
-      const ataInfo = await rpc
-        .getAccountInfo(ataAddress, { encoding: 'base64' })
-        .send();
-
-      if (!ataInfo.value) {
-        const { Connection, Transaction, PublicKey } = await import(
-          '@solana/web3.js'
-        );
-        const splToken = await import('@solana/spl-token');
-
-        const connection = new Connection(RPC_URL, 'confirmed');
-        const mintPubkey = new PublicKey(mintAddress);
-        const walletPubkey = new PublicKey(walletAddress);
-        const token2022ProgramId = new PublicKey(TOKEN_2022_PROGRAM_ADDRESS);
-
-        const ata = await splToken.getAssociatedTokenAddress(
-          mintPubkey,
-          walletPubkey,
-          false,
-          token2022ProgramId
-        );
-
-        const createAtaIx = splToken.createAssociatedTokenAccountInstruction(
-          walletPubkey,
-          ata,
-          walletPubkey,
-          mintPubkey,
-          token2022ProgramId
-        );
-
-        const tx = new Transaction().add(createAtaIx);
-        const { blockhash } = await connection.getLatestBlockhash();
-        tx.recentBlockhash = blockhash;
-        tx.feePayer = walletPubkey;
-
-        const signed = await wallet.signTransaction(tx);
-        const txid = await connection.sendRawTransaction(signed.serialize());
-        await connection.confirmTransaction(txid, 'confirmed');
-
-        console.log('created token account:', ata.toBase58());
-        return ata.toBase58();
-      }
+      // Generate mock ATA address
+      const ataAddress = generateMockTxSignature().slice(0, 44);
+      console.log('[MOCK] Token account setup:', ataAddress);
 
       return ataAddress;
     } catch (e: any) {
-      error.value = e.message || 'failed to setup account';
-      console.error('setup account error:', e);
+      error.value = e.message || 'Failed to setup token account';
       throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  // mint test tokens
-  async function mintTestTokens(wallet: any, amount: number): Promise<string> {
+  /**
+   * MOCK: Configure Confidential Transfer Account
+   * Simulates storing ElGamal public key on-chain
+   */
+  async function configureConfidentialTransferAccount(
+    wallet: any
+  ): Promise<string> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) {
+      throw new Error('Wallet not connected');
+    }
+
+    if (!elGamalPublicKey.value) {
+      throw new Error('ElGamal keypair not derived. Call deriveElGamalKeypair first.');
+    }
+
     loading.value = true;
     error.value = null;
 
     try {
-      if (!TEST_VEIL_MINT.value) {
-        throw new Error('mint not setup');
-      }
+      // Simulate transaction delay
+      await delay(1200);
 
-      const { Connection, Transaction, PublicKey } = await import(
-        '@solana/web3.js'
-      );
-      const splToken = await import('@solana/spl-token');
+      // Mark account as configured
+      localStorage.setItem(STORAGE_KEYS.isConfigured(walletAddress), 'true');
 
-      const connection = new Connection(RPC_URL);
-      const mintPubkey = new PublicKey(TEST_VEIL_MINT.value);
-      const walletPubkey = new PublicKey(wallet.publicKey.toBase58());
-      const token2022ProgramId = new PublicKey(TOKEN_2022_PROGRAM_ADDRESS);
+      const txSignature = generateMockTxSignature();
+      console.log('[MOCK] Account configured, tx:', txSignature.slice(0, 16) + '...');
 
-      const ata = await splToken.getAssociatedTokenAddress(
-        mintPubkey,
-        walletPubkey,
-        false,
-        token2022ProgramId
-      );
-
-      console.log('mintTestTokens debug:', {
-        mint: mintPubkey.toBase58(),
-        ata: ata.toBase58(),
-        authority: walletPubkey.toBase58(),
-        amount: amount * 1_000_000,
-        programId: token2022ProgramId.toBase58(),
-      });
-
-      const mintIx = splToken.createMintToInstruction(
-        mintPubkey,
-        ata,
-        walletPubkey,
-        amount * 1_000_000,
-        [],
-        token2022ProgramId
-      );
-
-      console.log(
-        'mintIx accounts:',
-        mintIx.keys.map((k) => ({
-          pubkey: k.pubkey.toBase58(),
-          isSigner: k.isSigner,
-          isWritable: k.isWritable,
-        }))
-      );
-
-      const tx = new Transaction().add(mintIx);
-      const { blockhash } = await connection.getLatestBlockhash();
-      tx.recentBlockhash = blockhash;
-      tx.feePayer = walletPubkey;
-
-      const signed = await wallet.signTransaction(tx);
-      const txid = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(txid);
-
-      console.log('minted tokens:', txid);
-      return txid;
+      return txSignature;
     } catch (e: any) {
-      error.value = e.message || 'failed to mint';
-      console.error('mint error:', e);
+      error.value = e.message || 'Failed to configure account';
       throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  // get public balance
-  async function getPublicBalance(wallet: any): Promise<number> {
+  /**
+   * MOCK: Mint Test Tokens
+   * Simulates minting tokens to the public balance
+   */
+  async function mintTestTokens(
+    wallet: any,
+    amount: number,
+    token: 'SOL' | 'USDC' = 'SOL'
+  ): Promise<string> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) {
+      throw new Error('Wallet not connected');
+    }
+
+    loading.value = true;
+    error.value = null;
+
     try {
-      if (!TEST_VEIL_MINT.value) return 0;
+      // Simulate transaction delay
+      await delay(800);
 
-      const { Connection, PublicKey } = await import('@solana/web3.js');
-      const splToken = await import('@solana/spl-token');
+      // Get current balance and add minted amount
+      const storageKey =
+        token === 'SOL'
+          ? STORAGE_KEYS.solPublicBalance(walletAddress)
+          : STORAGE_KEYS.usdcPublicBalance(walletAddress);
 
-      const connection = new Connection(RPC_URL);
-      const mintPubkey = new PublicKey(TEST_VEIL_MINT.value);
-      const walletPubkey = new PublicKey(wallet.publicKey.toBase58());
-      const token2022ProgramId = new PublicKey(TOKEN_2022_PROGRAM_ADDRESS);
+      const currentBalance = parseFloat(localStorage.getItem(storageKey) || '0');
+      const newBalance = currentBalance + amount;
+      localStorage.setItem(storageKey, newBalance.toString());
 
-      const ata = await splToken.getAssociatedTokenAddress(
-        mintPubkey,
-        walletPubkey,
-        false,
-        token2022ProgramId
-      );
+      const txSignature = generateMockTxSignature();
+      console.log(`[MOCK] Minted ${amount} ${token}, new balance: ${newBalance}, tx:`, txSignature.slice(0, 16) + '...');
 
-      try {
-        const account = await splToken.getAccount(
-          connection,
-          ata,
-          'confirmed',
-          token2022ProgramId
-        );
-        return Number(account.amount) / 1_000_000;
-      } catch {
-        return 0;
-      }
-    } catch (e) {
-      console.error('get balance error:', e);
-      return 0;
+      return txSignature;
+    } catch (e: any) {
+      error.value = e.message || 'Failed to mint tokens';
+      throw e;
+    } finally {
+      loading.value = false;
     }
   }
 
-  // simulated deposit to "private" balance (burns tokens, tracks locally)
-  // NOTE: Real CT deposit requires ZK proofs not available in JS SDK
+  /**
+   * MOCK: Get Public Balance
+   * Returns the simulated public (non-confidential) token balance
+   */
+  async function getPublicBalance(
+    wallet: any,
+    token: 'SOL' | 'USDC' = 'SOL'
+  ): Promise<number> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) return 0;
+
+    const storageKey =
+      token === 'SOL'
+        ? STORAGE_KEYS.solPublicBalance(walletAddress)
+        : STORAGE_KEYS.usdcPublicBalance(walletAddress);
+
+    return parseFloat(localStorage.getItem(storageKey) || '0');
+  }
+
+  /**
+   * MOCK: Get Confidential Balance
+   * Returns the simulated private (encrypted) token balance
+   */
+  async function getConfidentialBalance(
+    wallet: any,
+    token: 'SOL' | 'USDC' = 'SOL'
+  ): Promise<number> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) return 0;
+
+    const storageKey =
+      token === 'SOL'
+        ? STORAGE_KEYS.solPrivateBalance(walletAddress)
+        : STORAGE_KEYS.usdcPrivateBalance(walletAddress);
+
+    return parseFloat(localStorage.getItem(storageKey) || '0');
+  }
+
+  /**
+   * MOCK: Deposit to Confidential Balance
+   * Simulates moving tokens from public to private balance
+   */
   async function depositToConfidential(
     wallet: any,
-    amount: number
-  ): Promise<string | null> {
+    amount: number,
+    token: 'SOL' | 'USDC' = 'SOL'
+  ): Promise<string> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) {
+      throw new Error('Wallet not connected');
+    }
+
     loading.value = true;
     error.value = null;
 
     try {
-      if (!TEST_VEIL_MINT.value) {
-        throw new Error('mint not setup');
+      // Simulate transaction delay
+      await delay(1000);
+
+      const publicKey =
+        token === 'SOL'
+          ? STORAGE_KEYS.solPublicBalance(walletAddress)
+          : STORAGE_KEYS.usdcPublicBalance(walletAddress);
+      const privateKey =
+        token === 'SOL'
+          ? STORAGE_KEYS.solPrivateBalance(walletAddress)
+          : STORAGE_KEYS.usdcPrivateBalance(walletAddress);
+
+      const publicBalance = parseFloat(localStorage.getItem(publicKey) || '0');
+      const privateBalance = parseFloat(localStorage.getItem(privateKey) || '0');
+
+      if (amount > publicBalance) {
+        throw new Error('Insufficient public balance');
       }
 
-      const { Connection, Transaction, PublicKey } = await import(
-        '@solana/web3.js'
-      );
-      const splToken = await import('@solana/spl-token');
+      // Move from public to private
+      localStorage.setItem(publicKey, (publicBalance - amount).toString());
+      localStorage.setItem(privateKey, (privateBalance + amount).toString());
 
-      const connection = new Connection(RPC_URL);
-      const mintPubkey = new PublicKey(TEST_VEIL_MINT.value);
-      const walletPubkey = new PublicKey(wallet.publicKey.toBase58());
-      const token2022ProgramId = new PublicKey(TOKEN_2022_PROGRAM_ADDRESS);
+      const txSignature = generateMockTxSignature();
+      console.log(`[MOCK] Deposited ${amount} ${token} to confidential, tx:`, txSignature.slice(0, 16) + '...');
 
-      const ata = await splToken.getAssociatedTokenAddress(
-        mintPubkey,
-        walletPubkey,
-        false,
-        token2022ProgramId
-      );
-
-      // burn to simulate deposit to confidential balance
-      const burnIx = splToken.createBurnInstruction(
-        ata,
-        mintPubkey,
-        walletPubkey,
-        amount * 1_000_000,
-        [],
-        token2022ProgramId
-      );
-
-      const tx = new Transaction().add(burnIx);
-      const { blockhash } = await connection.getLatestBlockhash();
-      tx.recentBlockhash = blockhash;
-      tx.feePayer = walletPubkey;
-
-      const signed = await wallet.signTransaction(tx);
-      const txid = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(txid);
-
-      simulatedPrivateBalance.value += amount;
-      localStorage.setItem(
-        'veil-private-balance',
-        simulatedPrivateBalance.value.toString()
-      );
-
-      return txid;
+      return txSignature;
     } catch (e: any) {
-      error.value = e.message || 'failed to deposit';
-      console.error('deposit error:', e);
-      return null;
+      error.value = e.message || 'Failed to deposit';
+      throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  // simulated withdraw from "private" balance
+  /**
+   * MOCK: Apply Pending Balance
+   * In a real implementation, this moves pending → available encrypted balance
+   * For mock, this is a no-op since we directly update balances
+   */
+  async function applyPendingBalance(wallet: any): Promise<string> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) {
+      throw new Error('Wallet not connected');
+    }
+
+    loading.value = true;
+    error.value = null;
+
+    try {
+      // Simulate transaction delay
+      await delay(600);
+
+      const txSignature = generateMockTxSignature();
+      console.log('[MOCK] Applied pending balance, tx:', txSignature.slice(0, 16) + '...');
+
+      return txSignature;
+    } catch (e: any) {
+      error.value = e.message || 'Failed to apply pending balance';
+      throw e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  /**
+   * MOCK: Withdraw from Confidential Balance
+   * Simulates moving tokens from private to public balance
+   */
   async function withdrawFromConfidential(
     wallet: any,
-    amount: number
-  ): Promise<string | null> {
+    amount: number,
+    token: 'SOL' | 'USDC' = 'SOL'
+  ): Promise<string> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) {
+      throw new Error('Wallet not connected');
+    }
+
     loading.value = true;
     error.value = null;
 
     try {
-      if (simulatedPrivateBalance.value < amount) {
-        error.value = 'Insufficient private balance';
-        return null;
+      // Simulate transaction delay (longer for ZK proof generation)
+      await delay(1500);
+
+      const publicKey =
+        token === 'SOL'
+          ? STORAGE_KEYS.solPublicBalance(walletAddress)
+          : STORAGE_KEYS.usdcPublicBalance(walletAddress);
+      const privateKey =
+        token === 'SOL'
+          ? STORAGE_KEYS.solPrivateBalance(walletAddress)
+          : STORAGE_KEYS.usdcPrivateBalance(walletAddress);
+
+      const publicBalance = parseFloat(localStorage.getItem(publicKey) || '0');
+      const privateBalance = parseFloat(localStorage.getItem(privateKey) || '0');
+
+      if (amount > privateBalance) {
+        throw new Error('Insufficient confidential balance');
       }
 
-      if (!TEST_VEIL_MINT.value) {
-        throw new Error('mint not setup');
-      }
+      // Move from private to public
+      localStorage.setItem(privateKey, (privateBalance - amount).toString());
+      localStorage.setItem(publicKey, (publicBalance + amount).toString());
 
-      const { Connection, Transaction, PublicKey } = await import(
-        '@solana/web3.js'
-      );
-      const splToken = await import('@solana/spl-token');
+      const txSignature = generateMockTxSignature();
+      console.log(`[MOCK] Withdrew ${amount} ${token} from confidential, tx:`, txSignature.slice(0, 16) + '...');
 
-      const connection = new Connection(RPC_URL);
-      const mintPubkey = new PublicKey(TEST_VEIL_MINT.value);
-      const walletPubkey = new PublicKey(wallet.publicKey.toBase58());
-      const token2022ProgramId = new PublicKey(TOKEN_2022_PROGRAM_ADDRESS);
-
-      const ata = await splToken.getAssociatedTokenAddress(
-        mintPubkey,
-        walletPubkey,
-        false,
-        token2022ProgramId
-      );
-
-      // mint back to simulate withdraw from confidential balance
-      const mintIx = splToken.createMintToInstruction(
-        mintPubkey,
-        ata,
-        walletPubkey,
-        amount * 1_000_000,
-        [],
-        token2022ProgramId
-      );
-
-      const tx = new Transaction().add(mintIx);
-      const { blockhash } = await connection.getLatestBlockhash();
-      tx.recentBlockhash = blockhash;
-      tx.feePayer = walletPubkey;
-
-      const signed = await wallet.signTransaction(tx);
-      const txid = await connection.sendRawTransaction(signed.serialize());
-      await connection.confirmTransaction(txid);
-
-      simulatedPrivateBalance.value -= amount;
-      localStorage.setItem(
-        'veil-private-balance',
-        simulatedPrivateBalance.value.toString()
-      );
-
-      return txid;
+      return txSignature;
     } catch (e: any) {
-      error.value = e.message || 'failed to withdraw';
-      console.error('withdraw error:', e);
-      return null;
+      error.value = e.message || 'Failed to withdraw';
+      throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  // get simulated confidential balance
-  async function getConfidentialBalance(_wallet: any): Promise<number> {
-    const stored = localStorage.getItem('veil-private-balance');
-    if (stored) {
-      simulatedPrivateBalance.value = parseFloat(stored);
-    }
-    return simulatedPrivateBalance.value;
+  /**
+   * MOCK: Check if account is configured for confidential transfers
+   */
+  async function isAccountConfigured(wallet: any): Promise<boolean> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) return false;
+
+    return localStorage.getItem(STORAGE_KEYS.isConfigured(walletAddress)) === 'true';
+  }
+
+  /**
+   * MOCK: Reset all mock data for a wallet (useful for testing)
+   */
+  function resetMockData(wallet: any): void {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) return;
+
+    localStorage.removeItem(STORAGE_KEYS.elgamalPubkey(walletAddress));
+    localStorage.removeItem(STORAGE_KEYS.solPublicBalance(walletAddress));
+    localStorage.removeItem(STORAGE_KEYS.solPrivateBalance(walletAddress));
+    localStorage.removeItem(STORAGE_KEYS.usdcPublicBalance(walletAddress));
+    localStorage.removeItem(STORAGE_KEYS.usdcPrivateBalance(walletAddress));
+    localStorage.removeItem(STORAGE_KEYS.isConfigured(walletAddress));
+    localStorage.removeItem(STORAGE_KEYS.mintAddress);
+
+    elGamalPublicKey.value = null;
+    testMint.value = null;
+
+    console.log('[MOCK] Reset all mock data for wallet:', walletAddress);
   }
 
   return {
+    // State
     loading,
     error,
-    testMint: TEST_VEIL_MINT,
     elGamalPublicKey,
+    testMint,
+
+    // Functions
     deriveElGamalKeypair,
-    configureConfidentialTransferAccount,
     setupTestMint,
     setupTokenAccount,
+    configureConfidentialTransferAccount,
     mintTestTokens,
     getPublicBalance,
     getConfidentialBalance,
     depositToConfidential,
+    applyPendingBalance,
     withdrawFromConfidential,
+    isAccountConfigured,
+    resetMockData,
   };
 }

@@ -312,14 +312,11 @@ const {
   depositToConfidential,
   applyPendingBalance,
   withdrawFromConfidential,
+  isAccountConfigured,
 } = useConfidentialTransferKit();
 
 // Token type
 type TokenType = 'SOL' | 'USDC';
-
-// Mint addresses
-const SOL_MINT = 'So11111111111111111111111111111111111111112'; // Wrapped SOL
-const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'; // USDC mainnet
 
 const isSetup = ref(false);
 
@@ -376,74 +373,28 @@ function closeWithdrawModal() {
 
 // check if already setup
 async function checkSetup() {
-  // check both old and new localStorage keys for either mint
-  const storedSolMint = localStorage.getItem('veil-sol-mint-kit');
-  const storedUsdcMint = localStorage.getItem('veil-usdc-mint-kit');
-  const legacyMint = localStorage.getItem('veil-test-mint-kit') || localStorage.getItem('veil-test-mint');
+  if (!props.wallet?.publicKey) return;
 
-  if ((storedSolMint || storedUsdcMint || legacyMint) && props.wallet?.publicKey) {
+  // Check if mock mint exists
+  const storedMint = localStorage.getItem('veil-mock-mint');
+
+  if (storedMint) {
     isSetup.value = true;
     await refreshBalances();
-    await checkAccountConfigured('SOL');
-    await checkAccountConfigured('USDC');
+    await checkAccountConfiguredStatus();
   }
 }
 
-// check if the token account has ConfidentialTransferAccount extension configured
-async function checkAccountConfigured(token: TokenType) {
+// check if the account is configured for confidential transfers
+async function checkAccountConfiguredStatus() {
   if (!props.wallet?.publicKey) return;
 
-  try {
-    const mintKey = token === 'SOL' ? 'veil-sol-mint-kit' : 'veil-usdc-mint-kit';
-    const storedMint = localStorage.getItem(mintKey) || localStorage.getItem('veil-test-mint-kit');
-    if (!storedMint) return;
+  const configured = await isAccountConfigured(props.wallet);
+  isSolAccountConfigured.value = configured;
+  isUsdcAccountConfigured.value = configured;
 
-    const { Connection, PublicKey } = await import('@solana/web3.js');
-    const splToken = await import('@solana/spl-token');
-
-    const RPC_URL = 'https://zk-edge.surfnet.dev:8899';
-
-    const connection = new Connection(RPC_URL, 'confirmed');
-    const mintPubkey = new PublicKey(storedMint);
-    const walletPubkey = props.wallet.publicKey;
-    const token2022ProgramId = new PublicKey(
-      'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb',
-    );
-
-    const ata = await splToken.getAssociatedTokenAddress(
-      mintPubkey,
-      walletPubkey,
-      false,
-      token2022ProgramId,
-    );
-
-    const accountInfo = await connection.getAccountInfo(ata);
-    if (!accountInfo) return;
-
-    // check for ConfidentialTransferAccount extension (type 10)
-    const data = accountInfo.data;
-    const baseAccountSize = 165;
-    let offset = baseAccountSize;
-
-    while (offset < data.length - 4) {
-      const extensionType = data.readUInt16LE(offset);
-      const extensionLength = data.readUInt16LE(offset + 2);
-
-      if (extensionType === 10) {
-        // found ConfidentialTransferAccount extension
-        if (token === 'SOL') {
-          isSolAccountConfigured.value = true;
-        } else {
-          isUsdcAccountConfigured.value = true;
-        }
-        console.log(`${token} account already configured for confidential transfers`);
-        return;
-      }
-
-      offset += 4 + extensionLength;
-    }
-  } catch (e) {
-    console.error(`failed to check ${token} account configuration:`, e);
+  if (configured) {
+    console.log('[MOCK] Account is configured for confidential transfers');
   }
 }
 
@@ -451,20 +402,13 @@ async function checkAccountConfigured(token: TokenType) {
 async function refreshBalances() {
   if (!props.wallet?.publicKey) return;
 
-  // For now, use the existing composable which handles a single mint
-  // In production, this would fetch balances for both SOL and USDC mints
-  const publicBal = await getPublicBalance(props.wallet);
-  const confidentialBal = await getConfidentialBalance(props.wallet);
+  // Fetch SOL balances
+  solPublicBalance.value = await getPublicBalance(props.wallet, 'SOL');
+  solConfidentialBalance.value = await getConfidentialBalance(props.wallet, 'SOL');
 
-  // Assign to SOL by default (legacy behavior)
-  // TODO: Extend composable to handle multiple mints
-  solPublicBalance.value = publicBal;
-  solConfidentialBalance.value = confidentialBal;
-
-  // USDC balances would be fetched similarly with USDC mint
-  // For now, set to 0 as placeholder
-  usdcPublicBalance.value = 0;
-  usdcConfidentialBalance.value = 0;
+  // Fetch USDC balances
+  usdcPublicBalance.value = await getPublicBalance(props.wallet, 'USDC');
+  usdcConfidentialBalance.value = await getConfidentialBalance(props.wallet, 'USDC');
 }
 
 // setup confidential transfers
@@ -487,9 +431,7 @@ async function handleMintTokens(token: TokenType) {
   if (!props.wallet?.publicKey) return;
 
   try {
-    // For now, use the existing mint function
-    // TODO: Extend to handle SOL vs USDC mints separately
-    await mintTestTokens(props.wallet, 100);
+    await mintTestTokens(props.wallet, 100, token);
     await refreshBalances();
   } catch (e) {
     console.error(`${token} mint failed:`, e);
@@ -539,12 +481,10 @@ async function handleDeposit() {
   if (!props.wallet?.publicKey || depositAmount.value <= 0) return;
 
   try {
-    // TODO: Pass selected token to composable for multi-mint support
-    // For now, uses the default mint
     console.log(`Depositing ${depositAmount.value} ${selectedToken.value} to confidential balance...`);
 
     // step 1: deposit to pending balance
-    const txid = await depositToConfidential(props.wallet, depositAmount.value);
+    const txid = await depositToConfidential(props.wallet, depositAmount.value, selectedToken.value);
     if (txid) {
       console.log('deposit successful, now applying pending balance...');
       // step 2: apply pending balance to make it available
@@ -565,12 +505,12 @@ async function handleWithdraw() {
   if (!props.wallet?.publicKey || withdrawAmount.value <= 0) return;
 
   try {
-    // TODO: Pass selected token to composable for multi-mint support
     console.log(`Withdrawing ${withdrawAmount.value} ${selectedToken.value} from confidential balance...`);
 
     const txid = await withdrawFromConfidential(
       props.wallet,
       withdrawAmount.value,
+      selectedToken.value,
     );
     if (txid) {
       closeWithdrawModal();
