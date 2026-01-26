@@ -784,9 +784,15 @@ function shortenAddress(address: string): string {
 /* balance cards */
 .balance-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: 280px 1fr;
   gap: 1.5rem;
-  max-width: 800px;
+  max-width: 900px;
+}
+
+@media (max-width: 700px) {
+  .balance-cards {
+    grid-template-columns: 1fr;
+  }
 }
 
 .balance-card {
