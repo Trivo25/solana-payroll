@@ -7,7 +7,7 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "turbo run dev -- --host",
     "test": "turbo run test",
     "lint": "turbo run lint",
     "clean": "turbo run clean"
