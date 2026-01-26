@@ -56,7 +56,7 @@ That way, we can have a system in which payroll, invoices, etc are done on-chain
 
 ### Selective disclosure
 
-_(I know that CT support a auditor key to decode all transactions - but I want to avoid exactly that and make it selective + permissionless)_
+_(I know that CT support a auditor key to decode all transactions - but this avoids the need to force-decrypt all balances and token and only discloses exactly that what must be disclosed in a permissionless way)_
 
 As mentioned before privacy is not enough since payments must still be "provable" and "audible".
 
