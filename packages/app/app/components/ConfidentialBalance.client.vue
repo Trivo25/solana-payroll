@@ -30,6 +30,21 @@
               <span class="balance-type">Public</span>
               <span class="balance-value mono">{{ formatBalance(solPublicBalance, 4) }}</span>
             </div>
+            <div class="balance-row pending">
+              <span class="balance-type">
+                Pending
+                <span class="info-icon" data-tooltip="Pending balance needs to be applied before it can be used">!</span>
+              </span>
+              <span class="balance-value mono">{{ formatBalance(solPendingBalance, 4) }}</span>
+              <button
+                v-if="solPendingBalance > 0"
+                class="btn btn-tiny btn-apply"
+                :disabled="loading"
+                @click="handleApplyPending('SOL')"
+              >
+                Apply
+              </button>
+            </div>
             <div class="balance-row confidential">
               <span class="balance-type">
                 Private
@@ -68,6 +83,21 @@
             <div class="balance-row">
               <span class="balance-type">Public</span>
               <span class="balance-value mono">{{ formatBalance(usdcPublicBalance, 2) }}</span>
+            </div>
+            <div class="balance-row pending">
+              <span class="balance-type">
+                Pending
+                <span class="info-icon" data-tooltip="Pending balance needs to be applied before it can be used">!</span>
+              </span>
+              <span class="balance-value mono">{{ formatBalance(usdcPendingBalance, 2) }}</span>
+              <button
+                v-if="usdcPendingBalance > 0"
+                class="btn btn-tiny btn-apply"
+                :disabled="loading"
+                @click="handleApplyPending('USDC')"
+              >
+                Apply
+              </button>
             </div>
             <div class="balance-row confidential">
               <span class="balance-type">
@@ -308,6 +338,7 @@ const {
   setupTokenAccount,
   mintTestTokens,
   getPublicBalance,
+  getPendingBalance,
   getConfidentialBalance,
   depositToConfidential,
   applyPendingBalance,
@@ -322,11 +353,13 @@ const isSetup = ref(false);
 
 // SOL balances
 const solPublicBalance = ref(0);
+const solPendingBalance = ref(0);
 const solConfidentialBalance = ref(0);
 const isSolAccountConfigured = ref(false);
 
 // USDC balances
 const usdcPublicBalance = ref(0);
+const usdcPendingBalance = ref(0);
 const usdcConfidentialBalance = ref(0);
 const isUsdcAccountConfigured = ref(false);
 
@@ -404,10 +437,12 @@ async function refreshBalances() {
 
   // Fetch SOL balances
   solPublicBalance.value = await getPublicBalance(props.wallet, 'SOL');
+  solPendingBalance.value = await getPendingBalance(props.wallet, 'SOL');
   solConfidentialBalance.value = await getConfidentialBalance(props.wallet, 'SOL');
 
   // Fetch USDC balances
   usdcPublicBalance.value = await getPublicBalance(props.wallet, 'USDC');
+  usdcPendingBalance.value = await getPendingBalance(props.wallet, 'USDC');
   usdcConfidentialBalance.value = await getConfidentialBalance(props.wallet, 'USDC');
 }
 
@@ -481,22 +516,33 @@ async function handleDeposit() {
   if (!props.wallet?.publicKey || depositAmount.value <= 0) return;
 
   try {
-    console.log(`Depositing ${depositAmount.value} ${selectedToken.value} to confidential balance...`);
+    console.log(`Depositing ${depositAmount.value} ${selectedToken.value} to pending balance...`);
 
-    // step 1: deposit to pending balance
+    // Deposit moves public → pending (user must apply separately to move pending → available)
     const txid = await depositToConfidential(props.wallet, depositAmount.value, selectedToken.value);
     if (txid) {
-      console.log('deposit successful, now applying pending balance...');
-      // step 2: apply pending balance to make it available
-      const applyTxid = await applyPendingBalance(props.wallet);
-      if (applyTxid) {
-        console.log('pending balance applied:', applyTxid);
-      }
+      console.log('deposit to pending successful:', txid);
       closeDepositModal();
       await refreshBalances();
     }
   } catch (e) {
     console.error(`${selectedToken.value} deposit failed:`, e);
+  }
+}
+
+// apply pending balance for a specific token
+async function handleApplyPending(token: TokenType) {
+  if (!props.wallet?.publicKey) return;
+
+  try {
+    console.log(`Applying pending ${token} balance...`);
+    const txid = await applyPendingBalance(props.wallet, token);
+    if (txid) {
+      console.log('pending balance applied:', txid);
+      await refreshBalances();
+    }
+  } catch (e) {
+    console.error(`${token} apply pending failed:`, e);
   }
 }
 
@@ -661,8 +707,29 @@ onMounted(() => {
   border-radius: 6px;
 }
 
+.balance-row.pending {
+  background: rgba(245, 158, 11, 0.1);
+}
+
 .balance-row.confidential {
   background: rgba(16, 185, 129, 0.1);
+}
+
+.btn-tiny {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.5rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.btn-apply {
+  background: rgba(245, 158, 11, 0.2);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.btn-apply:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.3);
 }
 
 .balance-type {

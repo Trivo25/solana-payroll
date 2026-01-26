@@ -25,8 +25,10 @@ const testMint = ref<string | null>(null);
 const STORAGE_KEYS = {
   elgamalPubkey: (wallet: string) => `veil-mock-elgamal-${wallet}`,
   solPublicBalance: (wallet: string) => `veil-mock-sol-public-${wallet}`,
+  solPendingBalance: (wallet: string) => `veil-mock-sol-pending-${wallet}`,
   solPrivateBalance: (wallet: string) => `veil-mock-sol-private-${wallet}`,
   usdcPublicBalance: (wallet: string) => `veil-mock-usdc-public-${wallet}`,
+  usdcPendingBalance: (wallet: string) => `veil-mock-usdc-pending-${wallet}`,
   usdcPrivateBalance: (wallet: string) => `veil-mock-usdc-private-${wallet}`,
   isConfigured: (wallet: string) => `veil-mock-configured-${wallet}`,
   mintAddress: 'veil-mock-mint',
@@ -148,11 +150,17 @@ export function useConfidentialTransferKit() {
       if (!localStorage.getItem(STORAGE_KEYS.solPublicBalance(walletAddress))) {
         localStorage.setItem(STORAGE_KEYS.solPublicBalance(walletAddress), '0');
       }
+      if (!localStorage.getItem(STORAGE_KEYS.solPendingBalance(walletAddress))) {
+        localStorage.setItem(STORAGE_KEYS.solPendingBalance(walletAddress), '0');
+      }
       if (!localStorage.getItem(STORAGE_KEYS.solPrivateBalance(walletAddress))) {
         localStorage.setItem(STORAGE_KEYS.solPrivateBalance(walletAddress), '0');
       }
       if (!localStorage.getItem(STORAGE_KEYS.usdcPublicBalance(walletAddress))) {
         localStorage.setItem(STORAGE_KEYS.usdcPublicBalance(walletAddress), '0');
+      }
+      if (!localStorage.getItem(STORAGE_KEYS.usdcPendingBalance(walletAddress))) {
+        localStorage.setItem(STORAGE_KEYS.usdcPendingBalance(walletAddress), '0');
       }
       if (!localStorage.getItem(STORAGE_KEYS.usdcPrivateBalance(walletAddress))) {
         localStorage.setItem(STORAGE_KEYS.usdcPrivateBalance(walletAddress), '0');
@@ -298,8 +306,27 @@ export function useConfidentialTransferKit() {
   }
 
   /**
-   * MOCK: Get Confidential Balance
-   * Returns the simulated private (encrypted) token balance
+   * MOCK: Get Pending Balance
+   * Returns the simulated pending (deposited but not yet applied) token balance
+   */
+  async function getPendingBalance(
+    wallet: any,
+    token: 'SOL' | 'USDC' = 'SOL'
+  ): Promise<number> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress) return 0;
+
+    const storageKey =
+      token === 'SOL'
+        ? STORAGE_KEYS.solPendingBalance(walletAddress)
+        : STORAGE_KEYS.usdcPendingBalance(walletAddress);
+
+    return parseFloat(localStorage.getItem(storageKey) || '0');
+  }
+
+  /**
+   * MOCK: Get Confidential Balance (Available/Private)
+   * Returns the simulated private (encrypted, available) token balance
    */
   async function getConfidentialBalance(
     wallet: any,
@@ -318,7 +345,8 @@ export function useConfidentialTransferKit() {
 
   /**
    * MOCK: Deposit to Confidential Balance
-   * Simulates moving tokens from public to private balance
+   * Simulates moving tokens from public to PENDING balance
+   * (Pending balance must be "applied" to become available/private)
    */
   async function depositToConfidential(
     wallet: any,
@@ -341,24 +369,24 @@ export function useConfidentialTransferKit() {
         token === 'SOL'
           ? STORAGE_KEYS.solPublicBalance(walletAddress)
           : STORAGE_KEYS.usdcPublicBalance(walletAddress);
-      const privateKey =
+      const pendingKey =
         token === 'SOL'
-          ? STORAGE_KEYS.solPrivateBalance(walletAddress)
-          : STORAGE_KEYS.usdcPrivateBalance(walletAddress);
+          ? STORAGE_KEYS.solPendingBalance(walletAddress)
+          : STORAGE_KEYS.usdcPendingBalance(walletAddress);
 
       const publicBalance = parseFloat(localStorage.getItem(publicKey) || '0');
-      const privateBalance = parseFloat(localStorage.getItem(privateKey) || '0');
+      const pendingBalance = parseFloat(localStorage.getItem(pendingKey) || '0');
 
       if (amount > publicBalance) {
         throw new Error('Insufficient public balance');
       }
 
-      // Move from public to private
+      // Move from public to PENDING (not directly to private)
       localStorage.setItem(publicKey, (publicBalance - amount).toString());
-      localStorage.setItem(privateKey, (privateBalance + amount).toString());
+      localStorage.setItem(pendingKey, (pendingBalance + amount).toString());
 
       const txSignature = generateMockTxSignature();
-      console.log(`[MOCK] Deposited ${amount} ${token} to confidential, tx:`, txSignature.slice(0, 16) + '...');
+      console.log(`[MOCK] Deposited ${amount} ${token} to PENDING balance, tx:`, txSignature.slice(0, 16) + '...');
 
       return txSignature;
     } catch (e: any) {
@@ -371,10 +399,12 @@ export function useConfidentialTransferKit() {
 
   /**
    * MOCK: Apply Pending Balance
-   * In a real implementation, this moves pending → available encrypted balance
-   * For mock, this is a no-op since we directly update balances
+   * Moves tokens from pending → available/private balance
    */
-  async function applyPendingBalance(wallet: any): Promise<string> {
+  async function applyPendingBalance(
+    wallet: any,
+    token: 'SOL' | 'USDC' = 'SOL'
+  ): Promise<string> {
     const walletAddress = getWalletAddress(wallet);
     if (!walletAddress) {
       throw new Error('Wallet not connected');
@@ -387,8 +417,28 @@ export function useConfidentialTransferKit() {
       // Simulate transaction delay
       await delay(600);
 
+      const pendingKey =
+        token === 'SOL'
+          ? STORAGE_KEYS.solPendingBalance(walletAddress)
+          : STORAGE_KEYS.usdcPendingBalance(walletAddress);
+      const privateKey =
+        token === 'SOL'
+          ? STORAGE_KEYS.solPrivateBalance(walletAddress)
+          : STORAGE_KEYS.usdcPrivateBalance(walletAddress);
+
+      const pendingBalance = parseFloat(localStorage.getItem(pendingKey) || '0');
+      const privateBalance = parseFloat(localStorage.getItem(privateKey) || '0');
+
+      if (pendingBalance <= 0) {
+        throw new Error('No pending balance to apply');
+      }
+
+      // Move ALL pending to private/available
+      localStorage.setItem(pendingKey, '0');
+      localStorage.setItem(privateKey, (privateBalance + pendingBalance).toString());
+
       const txSignature = generateMockTxSignature();
-      console.log('[MOCK] Applied pending balance, tx:', txSignature.slice(0, 16) + '...');
+      console.log(`[MOCK] Applied ${pendingBalance} ${token} from pending to available, tx:`, txSignature.slice(0, 16) + '...');
 
       return txSignature;
     } catch (e: any) {
@@ -471,8 +521,10 @@ export function useConfidentialTransferKit() {
 
     localStorage.removeItem(STORAGE_KEYS.elgamalPubkey(walletAddress));
     localStorage.removeItem(STORAGE_KEYS.solPublicBalance(walletAddress));
+    localStorage.removeItem(STORAGE_KEYS.solPendingBalance(walletAddress));
     localStorage.removeItem(STORAGE_KEYS.solPrivateBalance(walletAddress));
     localStorage.removeItem(STORAGE_KEYS.usdcPublicBalance(walletAddress));
+    localStorage.removeItem(STORAGE_KEYS.usdcPendingBalance(walletAddress));
     localStorage.removeItem(STORAGE_KEYS.usdcPrivateBalance(walletAddress));
     localStorage.removeItem(STORAGE_KEYS.isConfigured(walletAddress));
     localStorage.removeItem(STORAGE_KEYS.mintAddress);
@@ -497,6 +549,7 @@ export function useConfidentialTransferKit() {
     configureConfidentialTransferAccount,
     mintTestTokens,
     getPublicBalance,
+    getPendingBalance,
     getConfidentialBalance,
     depositToConfidential,
     applyPendingBalance,
