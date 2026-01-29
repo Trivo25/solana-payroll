@@ -101,9 +101,9 @@
                     <span v-if="balanceLoading" class="loading-text"
                       >Loading...</span
                     >
-                    <span v-else class="balance-amount mono"
-                      >{{ formatBalance(balance) }}</span
-                    >
+                    <span v-else class="balance-amount mono">{{
+                      formatBalance(balance)
+                    }}</span>
                     <span class="token-symbol">SOL</span>
                   </div>
                 </div>
@@ -114,9 +114,9 @@
                     <span v-if="usdcLoading" class="loading-text"
                       >Loading...</span
                     >
-                    <span v-else class="balance-amount mono"
-                      >{{ formatUsdcBalance(usdcBalance) }}</span
-                    >
+                    <span v-else class="balance-amount mono">{{
+                      formatUsdcBalance(usdcBalance)
+                    }}</span>
                     <span class="token-symbol">USDC</span>
                   </div>
                 </div>
@@ -223,7 +223,7 @@ const accountLoading = ref(true);
 const uploadingPicture = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 let walletDisconnect: () => Promise<void> = async () => {};
-const RPC_URL = 'https://zk-edge.surfnet.dev:8899';
+const RPC_URL = 'http://127.0.0.1:8899';
 
 const { getAccount, uploadProfilePicture } = useSupabase();
 const {
@@ -352,9 +352,8 @@ async function fetchUsdcBalance(pubkey: any) {
   usdcLoading.value = true;
   try {
     const { Connection, PublicKey } = await import('@solana/web3.js');
-    const { getAssociatedTokenAddress, getAccount } = await import(
-      '@solana/spl-token'
-    );
+    const { getAssociatedTokenAddress, getAccount } =
+      await import('@solana/spl-token');
     const connection = new Connection(RPC_URL);
     const mintPubkey = new PublicKey(USDC_MINT);
 
