@@ -79,9 +79,57 @@ export interface WithdrawProgress {
 }
 const withdrawProgress = ref<WithdrawProgress | null>(null);
 
-// Token mint addresses (stored in localStorage for persistence)
+// Transaction history
+export interface CTTransaction {
+  id: string;
+  type: 'deposit' | 'apply' | 'withdraw' | 'mint';
+  amount: number;
+  signature: string;
+  timestamp: number;
+  status: 'success' | 'failed';
+}
+const transactions = ref<CTTransaction[]>([]);
+const TX_STORAGE_KEY = 'veil-ct-transactions';
+
+// Load transactions from localStorage
+function loadTransactions(): void {
+  try {
+    const stored = localStorage.getItem(TX_STORAGE_KEY);
+    if (stored) {
+      transactions.value = JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error('[CT] Failed to load transactions:', e);
+  }
+}
+
+// Save transactions to localStorage
+function saveTransactions(): void {
+  try {
+    localStorage.setItem(TX_STORAGE_KEY, JSON.stringify(transactions.value));
+  } catch (e) {
+    console.error('[CT] Failed to save transactions:', e);
+  }
+}
+
+// Add a transaction to history
+function addTransaction(tx: Omit<CTTransaction, 'id' | 'timestamp'>): void {
+  const newTx: CTTransaction = {
+    ...tx,
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    timestamp: Date.now(),
+  };
+  transactions.value = [newTx, ...transactions.value].slice(0, 50); // Keep last 50
+  saveTransactions();
+}
+
+// Initialize transactions on module load
+if (typeof window !== 'undefined') {
+  loadTransactions();
+}
+
+// Token mint address (stored in localStorage for persistence)
 const MINT_STORAGE_KEY = 'veil-ct-mint';
-const USDC_MINT_STORAGE_KEY = 'veil-ct-usdc-mint';
 
 // Auditor keypair (generated once per mint)
 let auditorKeypair: InstanceType<ZkSdkModule['ElGamalKeypair']> | null = null;
@@ -375,7 +423,7 @@ export function useConfidentialTransfer() {
   async function mintTestTokens(
     wallet: any,
     amount: number,
-    token: 'SOL' | 'USDC' = 'SOL',
+    _token: 'SOL' | 'USDC' = 'USDC',
   ): Promise<string> {
     const walletAddress = getWalletAddress(wallet);
     if (!walletAddress || !testMint.value) {
@@ -431,7 +479,7 @@ export function useConfidentialTransfer() {
    */
   async function getPublicBalance(
     wallet: any,
-    token: 'SOL' | 'USDC' = 'SOL',
+    _token: 'SOL' | 'USDC' = 'USDC',
   ): Promise<number> {
     const walletAddress = getWalletAddress(wallet);
     if (!walletAddress || !testMint.value) return 0;
@@ -466,7 +514,7 @@ export function useConfidentialTransfer() {
    */
   async function getPendingBalance(
     wallet: any,
-    token: 'SOL' | 'USDC' = 'SOL',
+    _token: 'SOL' | 'USDC' = 'USDC',
   ): Promise<number> {
     const walletAddress = getWalletAddress(wallet);
     if (!walletAddress || !testMint.value || !hasKeys()) return 0;
@@ -520,7 +568,7 @@ export function useConfidentialTransfer() {
    */
   async function getConfidentialBalance(
     wallet: any,
-    token: 'SOL' | 'USDC' = 'SOL',
+    _token: 'SOL' | 'USDC' = 'USDC',
   ): Promise<number> {
     const walletAddress = getWalletAddress(wallet);
     if (!walletAddress || !testMint.value || !hasKeys()) return 0;
@@ -566,7 +614,7 @@ export function useConfidentialTransfer() {
   async function depositToConfidential(
     wallet: any,
     amount: number,
-    token: 'SOL' | 'USDC' = 'SOL',
+    _token: 'SOL' | 'USDC' = 'USDC',
   ): Promise<string> {
     const walletAddress = getWalletAddress(wallet);
     if (!walletAddress || !testMint.value) {
@@ -607,6 +655,7 @@ export function useConfidentialTransfer() {
       );
 
       console.log(`[CT] Deposited ${amount} tokens to pending, tx:`, sig);
+      addTransaction({ type: 'deposit', amount, signature: sig, status: 'success' });
       return sig;
     } catch (e: any) {
       error.value = e.message || 'Failed to deposit';
@@ -621,7 +670,7 @@ export function useConfidentialTransfer() {
    */
   async function applyPendingBalance(
     wallet: any,
-    token: 'SOL' | 'USDC' = 'SOL',
+    _token: 'SOL' | 'USDC' = 'USDC',
   ): Promise<string> {
     const walletAddress = getWalletAddress(wallet);
     if (!walletAddress || !testMint.value || !hasKeys()) {
@@ -708,6 +757,8 @@ export function useConfidentialTransfer() {
       );
 
       console.log('[CT] Applied pending balance, tx:', sig);
+      const appliedAmount = Number(pendingAmount) / Math.pow(10, DECIMALS);
+      addTransaction({ type: 'apply', amount: appliedAmount, signature: sig, status: 'success' });
       return sig;
     } catch (e: any) {
       error.value = e.message || 'Failed to apply pending balance';
@@ -724,7 +775,7 @@ export function useConfidentialTransfer() {
   async function withdrawFromConfidential(
     wallet: any,
     amount: number,
-    token: 'SOL' | 'USDC' = 'SOL',
+    _token: 'SOL' | 'USDC' = 'USDC',
   ): Promise<string> {
     const walletAddress = getWalletAddress(wallet);
     if (!walletAddress || !testMint.value || !hasKeys()) {
@@ -941,6 +992,7 @@ export function useConfidentialTransfer() {
       );
 
       console.log(`[CT] Withdrew ${amount} tokens from confidential, tx:`, sig);
+      addTransaction({ type: 'withdraw', amount, signature: sig, status: 'success' });
       return sig;
     } catch (e: any) {
       error.value = e.message || 'Failed to withdraw';
@@ -979,6 +1031,123 @@ export function useConfidentialTransfer() {
     }
   }
 
+  /**
+   * Fetch transaction history from the blockchain
+   * Detects CT operations by analyzing token balance changes
+   */
+  async function fetchTransactionHistory(wallet: any): Promise<void> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress || !testMint.value) return;
+
+    try {
+      const connection = getConnection();
+      const walletPubkey = new PublicKey(walletAddress);
+      const mintPubkey = new PublicKey(testMint.value);
+
+      const ata = getAssociatedTokenAddressSync(
+        mintPubkey,
+        walletPubkey,
+        false,
+        TOKEN_2022_PROGRAM_ID,
+      );
+
+      // Get recent transaction signatures for the token account
+      const signatures = await connection.getSignaturesForAddress(ata, { limit: 30 });
+      console.log(`[CT] Found ${signatures.length} transactions for token account`);
+
+      // Get existing transaction signatures to avoid duplicates
+      const existingSignatures = new Set(transactions.value.map(tx => tx.signature));
+
+      // Fetch and parse each transaction
+      for (const sigInfo of signatures) {
+        // Skip if we already have this transaction or if it failed
+        if (existingSignatures.has(sigInfo.signature)) continue;
+        if (sigInfo.err) continue;
+
+        try {
+          const tx = await connection.getTransaction(sigInfo.signature, {
+            maxSupportedTransactionVersion: 0,
+          });
+
+          if (!tx || !tx.meta) continue;
+
+          // Find the token account index in the account keys
+          const accountKeys = tx.transaction.message.staticAccountKeys ||
+            (tx.transaction.message as any).accountKeys || [];
+          const ataIndex = accountKeys.findIndex((key: PublicKey) => key.equals(ata));
+
+          if (ataIndex === -1) continue;
+
+          // Get pre and post token balances
+          const preBalances = tx.meta.preTokenBalances || [];
+          const postBalances = tx.meta.postTokenBalances || [];
+
+          const preBalance = preBalances.find(b => b.accountIndex === ataIndex);
+          const postBalance = postBalances.find(b => b.accountIndex === ataIndex);
+
+          const prePubAmount = preBalance?.uiTokenAmount?.uiAmount || 0;
+          const postPubAmount = postBalance?.uiTokenAmount?.uiAmount || 0;
+
+          // Detect transaction type based on public balance change
+          let txType: CTTransaction['type'] | null = null;
+          let amount = 0;
+
+          // Check log messages for CT operations
+          const logs = tx.meta.logMessages || [];
+          const logStr = logs.join(' ').toLowerCase();
+
+          if (logStr.includes('deposit') || logStr.includes('confidentialtransferdeposit')) {
+            txType = 'deposit';
+            amount = prePubAmount - postPubAmount; // Public decreases on deposit
+          } else if (logStr.includes('applypendingbalance') || logStr.includes('apply')) {
+            txType = 'apply';
+            // Amount is tricky for apply - use 0 or try to detect
+            amount = 0;
+          } else if (logStr.includes('withdraw') || logStr.includes('confidentialtransferwithdraw')) {
+            txType = 'withdraw';
+            amount = postPubAmount - prePubAmount; // Public increases on withdraw
+          } else if (prePubAmount > postPubAmount && Math.abs(prePubAmount - postPubAmount) > 0.0001) {
+            // Public balance decreased - likely a deposit
+            txType = 'deposit';
+            amount = prePubAmount - postPubAmount;
+          } else if (postPubAmount > prePubAmount && Math.abs(postPubAmount - prePubAmount) > 0.0001) {
+            // Public balance increased - likely a withdraw
+            txType = 'withdraw';
+            amount = postPubAmount - prePubAmount;
+          }
+
+          if (txType && Math.abs(amount) >= 0) {
+            const newTx: CTTransaction = {
+              id: sigInfo.signature.slice(0, 16),
+              type: txType,
+              amount: Math.abs(amount),
+              signature: sigInfo.signature,
+              timestamp: sigInfo.blockTime ? sigInfo.blockTime * 1000 : Date.now(),
+              status: 'success',
+            };
+
+            // Add to beginning and dedupe
+            if (!existingSignatures.has(sigInfo.signature)) {
+              transactions.value.push(newTx);
+              existingSignatures.add(sigInfo.signature);
+            }
+          }
+        } catch (txError) {
+          console.warn('[CT] Failed to parse transaction:', sigInfo.signature, txError);
+        }
+      }
+
+      // Sort by timestamp (newest first) and limit
+      transactions.value.sort((a, b) => b.timestamp - a.timestamp);
+      transactions.value = transactions.value.slice(0, 50);
+      saveTransactions();
+
+      console.log(`[CT] Transaction history updated: ${transactions.value.length} total`);
+    } catch (e) {
+      console.error('[CT] Failed to fetch transaction history:', e);
+    }
+  }
+
   return {
     // State
     loading,
@@ -986,6 +1155,7 @@ export function useConfidentialTransfer() {
     elGamalPublicKey,
     testMint,
     withdrawProgress,
+    transactions,
 
     // Functions
     deriveElGamalKeypair,
@@ -1000,5 +1170,6 @@ export function useConfidentialTransfer() {
     applyPendingBalance,
     withdrawFromConfidential,
     isAccountConfigured,
+    fetchTransactionHistory,
   };
 }

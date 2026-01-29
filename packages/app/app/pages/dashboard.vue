@@ -126,6 +126,9 @@
 
             <!-- confidential balance component -->
             <ConfidentialBalance :wallet="walletAdapter" />
+
+            <!-- transaction history -->
+            <TransactionHistory />
           </div>
         </ClientOnly>
 
@@ -783,14 +786,26 @@ function shortenAddress(address: string): string {
 /* balance cards */
 .balance-cards {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 1.5rem;
-  max-width: 900px;
+  grid-template-columns: 240px 1fr 280px;
+  gap: 1rem;
+  max-width: 1100px;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 900px) {
+  .balance-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+  .balance-cards > *:nth-child(3) {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 600px) {
   .balance-cards {
     grid-template-columns: 1fr;
+  }
+  .balance-cards > *:nth-child(3) {
+    grid-column: span 1;
   }
 }
 

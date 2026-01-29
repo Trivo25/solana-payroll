@@ -255,6 +255,7 @@ const {
   testMint,
   elGamalPublicKey,
   withdrawProgress,
+  transactions,
   deriveElGamalKeypair,
   configureConfidentialTransferAccount,
   setupTestMint,
@@ -267,6 +268,7 @@ const {
   applyPendingBalance,
   withdrawFromConfidential,
   isAccountConfigured,
+  fetchTransactionHistory,
 } = useConfidentialTransfer();
 
 // Token type
@@ -334,6 +336,8 @@ async function checkSetup() {
     isSetup.value = true;
     await refreshBalances();
     await checkAccountConfiguredStatus();
+    // Fetch transaction history from blockchain
+    await fetchTransactionHistory(props.wallet);
   }
 }
 
