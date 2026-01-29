@@ -7,7 +7,8 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "confidential-transfer": "tsx scripts/run-confidential-transfer.ts"
   },
   "dependencies": {
     "@solana-program/token-2022": "^0.6.1",
@@ -30,6 +31,7 @@
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.6",
+    "tsx": "^4.21.0",
     "vite-plugin-top-level-await": "^1.6.0",
     "vite-plugin-wasm": "^3.5.0"
   }
