@@ -1,0 +1,3 @@
+[submodule "confidential-balances-exploration"]
+	path = confidential-balances-exploration
+	url = https://github.com/gitteri/confidential-balances-exploration
