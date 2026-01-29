@@ -390,21 +390,34 @@ async function handleMintTokens(token: TokenType) {
   try {
     await mintTestTokens(props.wallet, 100, token);
     await refreshBalances();
+    // Also check account configuration status
+    await checkAccountConfiguredStatus();
   } catch (e) {
     console.error(`${token} mint failed:`, e);
   }
 }
 
-// derive elgamal keypair
+// derive elgamal keypair and configure account
 async function handleDeriveKey() {
   if (!props.wallet?.publicKey) return;
 
   derivingKey.value = true;
   try {
     await deriveElGamalKeypair(props.wallet);
+
+    // Check if account needs to be configured
+    const configured = await isAccountConfigured(props.wallet);
+    if (!configured) {
+      // Automatically configure the account for confidential transfers
+      console.log('[CT] Account not configured, configuring now...');
+      await configureConfidentialTransferAccount(props.wallet);
+      isUsdcAccountConfigured.value = true;
+    } else {
+      isUsdcAccountConfigured.value = true;
+    }
+
     // Refresh balances now that we can decrypt them
     await refreshBalances();
-    await checkAccountConfiguredStatus();
   } catch (e) {
     console.error('key derivation failed:', e);
   } finally {
