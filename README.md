@@ -1,5 +1,11 @@
 # Private Payroll
 
+### TypeScript Example
+
+I put together a TypeScript example that goes through the Confidential Transfer in TypeScript only which is accessible here: https://github.com/Trivo25/solana-confidential-transfer-typescript
+
+JavaScript/TypeScript examples are pretty bad, hence I opened this PR as well.
+
 > This project enables private payroll and invoicing on Solana by combining Confidential Transfers for hidden payments with Noir based zero-knowledge receipts for selective, verifiable disclosure.
 
 ## Problem
