@@ -298,8 +298,23 @@
           </button>
         </div>
 
+        <!-- Withdraw progress indicator -->
+        <div v-if="withdrawProgress" class="withdraw-progress">
+          <div class="progress-header">
+            <span class="progress-title">Processing Withdrawal</span>
+            <span class="progress-step">Step {{ withdrawProgress.step }}/{{ withdrawProgress.totalSteps }}</span>
+          </div>
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              :style="{ width: `${(withdrawProgress.step / withdrawProgress.totalSteps) * 100}%` }"
+            ></div>
+          </div>
+          <div class="progress-status">{{ withdrawProgress.currentStep }}</div>
+        </div>
+
         <div class="modal-actions">
-          <button class="btn btn-secondary" @click="closeWithdrawModal">
+          <button class="btn btn-secondary" @click="closeWithdrawModal" :disabled="loading">
             Cancel
           </button>
           <button
@@ -311,7 +326,7 @@
             "
             @click="handleWithdraw"
           >
-            {{ loading ? 'Withdrawing...' : 'Withdraw' }}
+            {{ withdrawProgress ? withdrawProgress.currentStep : (loading ? 'Withdrawing...' : 'Withdraw') }}
           </button>
         </div>
       </div>
@@ -321,7 +336,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
-import { useConfidentialTransferKit } from '~/composables/useConfidentialTransferKit';
+import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer';
 
 const props = defineProps<{
   wallet: any;
@@ -332,6 +347,7 @@ const {
   error,
   testMint,
   elGamalPublicKey,
+  withdrawProgress,
   deriveElGamalKeypair,
   configureConfidentialTransferAccount,
   setupTestMint,
@@ -344,7 +360,7 @@ const {
   applyPendingBalance,
   withdrawFromConfidential,
   isAccountConfigured,
-} = useConfidentialTransferKit();
+} = useConfidentialTransfer();
 
 // Token type
 type TokenType = 'SOL' | 'USDC';
@@ -408,10 +424,12 @@ function closeWithdrawModal() {
 async function checkSetup() {
   if (!props.wallet?.publicKey) return;
 
-  // Check if mock mint exists
-  const storedMint = localStorage.getItem('veil-mock-mint');
+  // Check if mint exists (real implementation uses 'veil-ct-mint')
+  const storedMint = localStorage.getItem('veil-ct-mint');
 
   if (storedMint) {
+    // Load the mint into the composable state
+    await setupTestMint(props.wallet);
     isSetup.value = true;
     await refreshBalances();
     await checkAccountConfiguredStatus();
@@ -427,7 +445,7 @@ async function checkAccountConfiguredStatus() {
   isUsdcAccountConfigured.value = configured;
 
   if (configured) {
-    console.log('[MOCK] Account is configured for confidential transfers');
+    console.log('[CT] Account is configured for confidential transfers');
   }
 }
 
@@ -1137,6 +1155,53 @@ onMounted(() => {
   border-radius: 8px;
   font-size: 0.75rem;
   color: #d97706;
+  text-align: center;
+}
+
+/* withdraw progress */
+.withdraw-progress {
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 8px;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.progress-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6366f1;
+}
+
+.progress-step {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+}
+
+.progress-bar {
+  height: 4px;
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #6366f1;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.progress-status {
+  font-size: 0.625rem;
+  color: var(--text-secondary);
   text-align: center;
 }
 </style>

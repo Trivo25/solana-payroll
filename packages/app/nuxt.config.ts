@@ -1,10 +1,37 @@
 import wasm from 'vite-plugin-wasm'
 import topLevelAwait from 'vite-plugin-top-level-await'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import { fileURLToPath } from 'url'
+import { dirname, resolve } from 'path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  compatibilityDate: '2025-07-15',
+  compatibilityDate: '2024-11-01',
   devtools: { enabled: true },
+
+  // Use app/ directory structure (Nuxt 4 style)
+  srcDir: 'app/',
+
+  // SSR configuration - disable SSR for pages that use Solana
+  // This avoids Buffer issues during server-side rendering
+  ssr: true,
+
+  // Configure Nitro (server engine) to handle Node.js polyfills
+  nitro: {
+    // Don't try to bundle these for SSR - use Node.js native
+    externals: {
+      inline: ['buffer']
+    }
+  },
+
+  // Route rules - disable SSR for pages that use Solana
+  routeRules: {
+    '/dashboard': { ssr: false },
+    '/connect': { ssr: false },
+  },
 
   runtimeConfig: {
     public: {
@@ -35,19 +62,33 @@ export default defineNuxtConfig({
     plugins: [
       wasm(),
       topLevelAwait(),
+      nodePolyfills({
+        // Enable Buffer polyfill
+        include: ['buffer'],
+        globals: {
+          Buffer: true,
+          global: true,
+          process: true,
+        },
+      }),
     ],
+    server: {
+      watch: {
+        ignored: ['**/test-ledger/**'],
+      },
+    },
     define: {
       'process.env.BROWSER': true,
     },
     resolve: {
       alias: {
-        // Ensure React is resolved for wallet adapter dependencies
         'react': 'react',
         'react-dom': 'react-dom',
+        'abort-controller': resolve(__dirname, 'node_modules/unenv/runtime/mock/empty.mjs'),
       }
     },
     optimizeDeps: {
-      include: ['react', 'react-dom'],
+      include: ['react', 'react-dom', 'solana-wallets-vue', '@solana/wallet-adapter-wallets', 'buffer'],
       exclude: ['@solana/zk-sdk'],
       esbuildOptions: {
         define: {
