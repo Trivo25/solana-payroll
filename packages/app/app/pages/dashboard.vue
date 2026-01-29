@@ -64,7 +64,15 @@
                   />
                 </div>
                 <div class="welcome-text">
-                  <h1>Welcome, {{ account.name }}</h1>
+                  <div class="welcome-header-row">
+                    <h1>Welcome, {{ account.name }}</h1>
+                    <!-- compact qr code -->
+                    <div v-if="connected" class="qr-compact" @click="showQRModal = true">
+                      <img v-if="qrCodeUrl" :src="qrCodeUrl" alt="Your QR Code" class="qr-mini" />
+                      <div v-else class="qr-mini-loading"></div>
+                      <div class="qr-shine"></div>
+                    </div>
+                  </div>
                   <p class="subtitle">
                     <span class="account-badge" :class="account.account_type">
                       {{
@@ -82,6 +90,17 @@
               <p class="subtitle">Your private payment dashboard</p>
             </template>
           </ClientOnly>
+        </div>
+
+        <!-- qr modal -->
+        <div v-if="showQRModal" class="qr-modal-overlay" @click.self="showQRModal = false">
+          <div class="qr-modal">
+            <button class="qr-modal-close" @click="showQRModal = false">&times;</button>
+            <QRConnect
+              :wallet-address="publicKey?.toBase58() || ''"
+              @connect="handleQRConnect"
+            />
+          </div>
         </div>
 
         <!-- balance cards -->
@@ -179,16 +198,6 @@
           </div>
         </ClientOnly>
 
-        <!-- qr connect section -->
-        <ClientOnly>
-          <div v-if="connected" class="qr-section">
-            <h2 class="section-title">Connect with Others</h2>
-            <QRConnect
-              :wallet-address="publicKey?.toBase58() || ''"
-              @connect="handleQRConnect"
-            />
-          </div>
-        </ClientOnly>
 
         <!-- invoice modal -->
         <InvoiceModal
@@ -227,6 +236,30 @@ const uploadingPicture = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 let walletDisconnect: () => Promise<void> = async () => {};
 const RPC_URL = 'http://127.0.0.1:8899';
+
+// QR code state
+const showQRModal = ref(false);
+const qrCodeUrl = ref('');
+
+// generate mini qr code
+async function generateMiniQRCode() {
+  const address = publicKey.value?.toBase58();
+  if (!address) return;
+
+  try {
+    const QRCode = (await import('qrcode')).default;
+    qrCodeUrl.value = await QRCode.toDataURL(address, {
+      width: 80,
+      margin: 1,
+      color: {
+        dark: '#0f172a',
+        light: '#ffffff',
+      },
+    });
+  } catch (e) {
+    console.error('failed to generate qr code:', e);
+  }
+}
 
 const { getAccount, uploadProfilePicture } = useSupabase();
 const {
@@ -501,6 +534,7 @@ onMounted(async () => {
       fetchUsdcBalance(wallet.publicKey.value);
       fetchConfidentialBalance(wallet.publicKey.value);
       checkAccount(address);
+      generateMiniQRCode();
     }
 
     watch(
@@ -519,6 +553,7 @@ onMounted(async () => {
           fetchUsdcBalance(val);
           fetchConfidentialBalance(val);
           checkAccount(address);
+          generateMiniQRCode();
         }
       },
     );
@@ -690,6 +725,124 @@ function shortenAddress(address: string): string {
   font-size: 1.125rem;
   color: var(--text-secondary);
 }
+
+/* welcome header row with qr inline */
+.welcome-header-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* compact qr code - modern style */
+.qr-compact {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  background: white;
+  border-radius: 10px;
+  padding: 4px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15), 0 0 0 1px rgba(99, 102, 241, 0.1);
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.qr-compact:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.25), 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.qr-compact:active {
+  transform: scale(1.05);
+}
+
+.qr-mini {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+}
+
+.qr-mini-loading {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  border-radius: 4px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* shine effect on hover */
+.qr-shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.4) 50%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.qr-compact:hover .qr-shine {
+  opacity: 1;
+}
+
+/* qr modal */
+.qr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.qr-modal {
+  position: relative;
+  animation: modalIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.qr-modal-close {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 1rem;
+  font-weight: 300;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.qr-modal-close:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+}
+
 
 /* profile picture */
 .profile-picture-wrapper {
@@ -940,11 +1093,6 @@ function shortenAddress(address: string): string {
 
 .balance-card:hover .blur-hover {
   filter: blur(0);
-}
-
-/* qr section */
-.qr-section {
-  margin-top: 2rem;
 }
 
 .section-title {
