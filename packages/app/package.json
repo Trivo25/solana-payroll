@@ -8,7 +8,8 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "confidential-transfer": "tsx scripts/run-confidential-transfer.ts"
+    "confidential-transfer": "tsx scripts/run-confidential-transfer.ts",
+    "zk-proofs": "tsx scripts/test-zk-proofs.ts"
   },
   "dependencies": {
     "@solana-program/token-2022": "^0.6.1",
