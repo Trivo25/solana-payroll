@@ -61,25 +61,10 @@ const ZK_ELGAMAL_PROOF_PROGRAM_ID = new PublicKey(
 // ZK SDK Types (loaded dynamically)
 // ============================================
 
-let zkSdk: {
-  ElGamalKeypair: any;
-  ElGamalPubkey: any;
-  ElGamalSecretKey: any;
-  ElGamalCiphertext: any;
-  AeKey: any;
-  AeCiphertext: any;
-  PubkeyValidityProofData: any;
-  PedersenOpening: any;
-  PedersenCommitment: any;
-  GroupedElGamalCiphertext2Handles: any;
-  GroupedElGamalCiphertext3Handles: any;
-  CiphertextCiphertextEqualityProofData: any;
-  CiphertextCommitmentEqualityProofData: any;
-  BatchedGroupedCiphertext2HandlesValidityProofData: any;
-  BatchedGroupedCiphertext3HandlesValidityProofData: any;
-  BatchedRangeProofU64Data: any;
-  BatchedRangeProofU128Data: any;
-};
+// Import types from the ZK SDK package for proper IntelliSense
+type ZkSdkModule = typeof import('@solana/zk-sdk/node');
+
+let zkSdk: ZkSdkModule;
 
 // ============================================
 // HELPER FUNCTIONS
@@ -122,7 +107,9 @@ interface CiphertextComponents {
  */
 function parseCiphertext(ciphertextBytes: Uint8Array): CiphertextComponents {
   if (ciphertextBytes.length !== 64) {
-    throw new Error(`Invalid ciphertext length: ${ciphertextBytes.length}, expected 64`);
+    throw new Error(
+      `Invalid ciphertext length: ${ciphertextBytes.length}, expected 64`,
+    );
   }
   return {
     commitment: ciphertextBytes.slice(0, 32),
@@ -194,7 +181,10 @@ function scalarMultiply(pointBytes: Uint8Array, scalar: bigint): Uint8Array {
  * Homomorphic subtraction of ElGamal ciphertexts: C1 - C2
  * For ElGamal: (commitment1 - commitment2, handle1 - handle2)
  */
-function subtractCiphertexts(c1Bytes: Uint8Array, c2Bytes: Uint8Array): Uint8Array {
+function subtractCiphertexts(
+  c1Bytes: Uint8Array,
+  c2Bytes: Uint8Array,
+): Uint8Array {
   const c1 = parseCiphertext(c1Bytes);
   const c2 = parseCiphertext(c2Bytes);
 
@@ -220,7 +210,10 @@ function addCiphertexts(c1Bytes: Uint8Array, c2Bytes: Uint8Array): Uint8Array {
 /**
  * Scalar multiply a ciphertext: scalar * C
  */
-function scalarMultiplyCiphertext(ciphertextBytes: Uint8Array, scalar: bigint): Uint8Array {
+function scalarMultiplyCiphertext(
+  ciphertextBytes: Uint8Array,
+  scalar: bigint,
+): Uint8Array {
   const c = parseCiphertext(ciphertextBytes);
 
   return combineCiphertext({
@@ -239,7 +232,10 @@ function combineLowHighCiphertexts(
   shiftBits: number,
 ): Uint8Array {
   // hi_scaled = hi * 2^shiftBits
-  const hiScaled = scalarMultiplyCiphertext(hiBytes, BigInt(1) << BigInt(shiftBits));
+  const hiScaled = scalarMultiplyCiphertext(
+    hiBytes,
+    BigInt(1) << BigInt(shiftBits),
+  );
   // combined = lo + hi_scaled
   return addCiphertexts(loBytes, hiScaled);
 }
@@ -1808,10 +1804,12 @@ async function main() {
       // For batched validity, we split the amount into lo (16 bits) and hi (32 bits) parts
       // The SPL confidential transfer uses this split for range proof efficiency
       // Lo holds lower 16 bits (max 65535), Hi holds upper bits
-      const amountLo = TRANSFER_AMOUNT & BigInt(0xFFFF); // Lower 16 bits
+      const amountLo = TRANSFER_AMOUNT & BigInt(0xffff); // Lower 16 bits
       const amountHi = TRANSFER_AMOUNT >> BigInt(16); // Upper bits (shifted right by 16)
 
-      console.log(`     Amount split: lo=${amountLo} (${amountLo.toString(16)}h), hi=${amountHi} (${amountHi.toString(16)}h)`);
+      console.log(
+        `     Amount split: lo=${amountLo} (${amountLo.toString(16)}h), hi=${amountHi} (${amountHi.toString(16)}h)`,
+      );
 
       const openingLo = new PedersenOpening();
       const openingHi = new PedersenOpening();
@@ -1862,7 +1860,8 @@ async function main() {
 
       // Step 1: Get the current available balance ciphertext from the sender's token account
       console.log('     Reading current balance ciphertext from account...');
-      const senderAccountInfo = await connection.getAccountInfo(senderTokenAccount);
+      const senderAccountInfo =
+        await connection.getAccountInfo(senderTokenAccount);
       if (!senderAccountInfo) {
         throw new Error('Sender token account not found');
       }
@@ -1893,9 +1892,12 @@ async function main() {
       while (offset + 4 <= accountData.length) {
         const extensionType = accountData.readUInt16LE(offset);
         const extensionLength = accountData.readUInt16LE(offset + 2);
-        console.log(`     Extension at ${offset}: type=${extensionType}, length=${extensionLength}`);
+        console.log(
+          `     Extension at ${offset}: type=${extensionType}, length=${extensionLength}`,
+        );
 
-        if (extensionType === 5) { // ConfidentialTransferAccount
+        if (extensionType === 5) {
+          // ConfidentialTransferAccount
           offset += 4; // Skip type and length
           // available_balance is at offset: 1 (approved) + 32 (pubkey) + 64 (pending_lo) + 64 (pending_hi) = 161
           const availableBalanceOffset = offset + 1 + 32 + 64 + 64;
@@ -1903,21 +1905,29 @@ async function main() {
             availableBalanceOffset,
             availableBalanceOffset + 64,
           );
-          console.log(`     Found available_balance at offset ${availableBalanceOffset}`);
-          console.log(`     Current balance ciphertext: ${currentBalanceCiphertextBytes.length} bytes`);
+          console.log(
+            `     Found available_balance at offset ${availableBalanceOffset}`,
+          );
+          console.log(
+            `     Current balance ciphertext: ${currentBalanceCiphertextBytes.length} bytes`,
+          );
           break;
         }
         offset += 4 + extensionLength;
       }
 
       if (!currentBalanceCiphertextBytes) {
-        throw new Error('ConfidentialTransferAccount extension not found in account data');
+        throw new Error(
+          'ConfidentialTransferAccount extension not found in account data',
+        );
       }
 
       // Step 2: Extract source ciphertexts from the grouped ciphertexts
       // A grouped ciphertext (3 handles) is: Commitment (32) + Handle1 (32) + Handle2 (32) + Handle3 (32) = 128 bytes
       // The source ElGamal ciphertext is: Commitment (32) + Handle1 (32) = first 64 bytes
-      console.log(`     Extracting source ciphertexts from grouped ciphertexts...`);
+      console.log(
+        `     Extracting source ciphertexts from grouped ciphertexts...`,
+      );
 
       const groupedLoBytes = groupedCiphertextLo.toBytes();
       const groupedHiBytes = groupedCiphertextHi.toBytes();
@@ -1931,17 +1941,23 @@ async function main() {
         sourceCiphertextHiBytes,
         16, // TRANSFER_AMOUNT_LO_BITS
       );
-      console.log(`     Combined transfer ciphertext: ${transferAmountCiphertextBytes.length} bytes`);
+      console.log(
+        `     Combined transfer ciphertext: ${transferAmountCiphertextBytes.length} bytes`,
+      );
 
       // Step 4: Compute new_balance_ciphertext = current_balance - transfer_amount (homomorphic)
       const newBalanceCiphertextBytes = subtractCiphertexts(
         currentBalanceCiphertextBytes,
         transferAmountCiphertextBytes,
       );
-      console.log(`     Computed new balance ciphertext: ${newBalanceCiphertextBytes.length} bytes`);
+      console.log(
+        `     Computed new balance ciphertext: ${newBalanceCiphertextBytes.length} bytes`,
+      );
 
       // Convert to SDK type
-      const newBalanceCiphertext = ElGamalCiphertext.fromBytes(newBalanceCiphertextBytes);
+      const newBalanceCiphertext = ElGamalCiphertext.fromBytes(
+        newBalanceCiphertextBytes,
+      );
       if (!newBalanceCiphertext) {
         throw new Error('Failed to parse new balance ciphertext');
       }
@@ -1991,11 +2007,17 @@ async function main() {
           equalityProof.verify();
           console.log('     ✅ Verified locally');
         } catch (verifyError: any) {
-          console.error(`     ❌ Local verification failed: ${verifyError.message || verifyError}`);
-          throw new Error(`Equality proof local verification failed: ${verifyError.message || verifyError}`);
+          console.error(
+            `     ❌ Local verification failed: ${verifyError.message || verifyError}`,
+          );
+          throw new Error(
+            `Equality proof local verification failed: ${verifyError.message || verifyError}`,
+          );
         }
       } catch (e: any) {
-        console.error(`     ❌ Failed to create equality proof: ${e.message || e}`);
+        console.error(
+          `     ❌ Failed to create equality proof: ${e.message || e}`,
+        );
         throw e;
       }
 
@@ -2059,8 +2081,12 @@ async function main() {
         rangeProof.verify();
         console.log('     ✅ Verified locally');
       } catch (verifyError: any) {
-        console.error(`     ❌ Local verification failed: ${verifyError.message || verifyError}`);
-        throw new Error(`Range proof local verification failed: ${verifyError.message || verifyError}`);
+        console.error(
+          `     ❌ Local verification failed: ${verifyError.message || verifyError}`,
+        );
+        throw new Error(
+          `Range proof local verification failed: ${verifyError.message || verifyError}`,
+        );
       }
 
       // Step 7f: Create context state accounts to store the proofs
