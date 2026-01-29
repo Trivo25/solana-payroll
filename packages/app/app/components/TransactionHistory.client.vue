@@ -2,7 +2,14 @@
   <div class="transaction-history">
     <div class="history-header">
       <div class="history-label">Recent Activity</div>
-      <span class="history-icon">&#x1F4DC;</span>
+      <button
+        v-if="transactions.length > 0"
+        class="clear-btn"
+        @click="clearHistory"
+        title="Clear history"
+      >
+        &#x1F5D1;
+      </button>
     </div>
 
     <div v-if="transactions.length === 0" class="empty-state">
@@ -46,7 +53,13 @@
 <script setup lang="ts">
 import { useConfidentialTransfer, type CTTransaction } from '~/composables/useConfidentialTransfer';
 
-const { transactions } = useConfidentialTransfer();
+const { transactions, clearTransactionHistory } = useConfidentialTransfer();
+
+function clearHistory() {
+  if (confirm('Clear transaction history?')) {
+    clearTransactionHistory();
+  }
+}
 
 function formatType(type: CTTransaction['type']): string {
   switch (type) {
@@ -59,8 +72,11 @@ function formatType(type: CTTransaction['type']): string {
 }
 
 function formatAmount(type: CTTransaction['type'], amount: number): string {
+  if (type === 'apply') {
+    return amount > 0 ? `+${amount.toFixed(2)}` : '---';
+  }
   const formatted = amount.toFixed(2);
-  if (type === 'deposit' || type === 'apply') {
+  if (type === 'deposit') {
     return `+${formatted}`;
   } else if (type === 'withdraw') {
     return `-${formatted}`;
@@ -100,7 +116,7 @@ function formatTime(timestamp: number): string {
 .history-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 1rem;
 }
 
@@ -110,8 +126,18 @@ function formatTime(timestamp: number): string {
   color: var(--text-secondary);
 }
 
-.history-icon {
-  font-size: 1.25rem;
+.clear-btn {
+  background: none;
+  border: none;
+  font-size: 0.875rem;
+  cursor: pointer;
+  opacity: 0.4;
+  padding: 0.25rem;
+  transition: opacity 0.2s;
+}
+
+.clear-btn:hover {
+  opacity: 1;
 }
 
 .empty-state {

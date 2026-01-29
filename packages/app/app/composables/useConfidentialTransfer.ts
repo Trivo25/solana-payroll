@@ -123,6 +123,13 @@ function addTransaction(tx: Omit<CTTransaction, 'id' | 'timestamp'>): void {
   saveTransactions();
 }
 
+// Clear transaction history
+function clearTransactionHistory(): void {
+  transactions.value = [];
+  localStorage.removeItem(TX_STORAGE_KEY);
+  console.log('[CT] Transaction history cleared');
+}
+
 // Initialize transactions on module load
 if (typeof window !== 'undefined') {
   loadTransactions();
@@ -1088,35 +1095,41 @@ export function useConfidentialTransfer() {
           const prePubAmount = preBalance?.uiTokenAmount?.uiAmount || 0;
           const postPubAmount = postBalance?.uiTokenAmount?.uiAmount || 0;
 
-          // Detect transaction type based on public balance change
-          let txType: CTTransaction['type'] | null = null;
-          let amount = 0;
-
           // Check log messages for CT operations
           const logs = tx.meta.logMessages || [];
           const logStr = logs.join(' ').toLowerCase();
 
-          if (logStr.includes('deposit') || logStr.includes('confidentialtransferdeposit')) {
+          // Detect transaction type based on log messages (most reliable)
+          let txType: CTTransaction['type'] | null = null;
+          let amount = 0;
+
+          // Skip mint transactions - they have "MintTo" in logs
+          if (logStr.includes('mintto') || logStr.includes('mint_to')) {
+            console.log('[CT] Skipping mint transaction:', sigInfo.signature.slice(0, 16));
+            continue;
+          }
+
+          // Check for specific CT operations in logs
+          if (logStr.includes('confidentialtransferdeposit') ||
+              (logStr.includes('deposit') && !logStr.includes('withdraw'))) {
             txType = 'deposit';
             amount = prePubAmount - postPubAmount; // Public decreases on deposit
-          } else if (logStr.includes('applypendingbalance') || logStr.includes('apply')) {
+          } else if (logStr.includes('applypendingbalance') ||
+                     logStr.includes('apply_pending')) {
             txType = 'apply';
-            // Amount is tricky for apply - use 0 or try to detect
-            amount = 0;
-          } else if (logStr.includes('withdraw') || logStr.includes('confidentialtransferwithdraw')) {
+            amount = 0; // Apply doesn't change public balance
+          } else if (logStr.includes('confidentialtransferwithdraw') ||
+                     (logStr.includes('withdraw') && logStr.includes('confidential'))) {
             txType = 'withdraw';
             amount = postPubAmount - prePubAmount; // Public increases on withdraw
           } else if (prePubAmount > postPubAmount && Math.abs(prePubAmount - postPubAmount) > 0.0001) {
-            // Public balance decreased - likely a deposit
+            // Public balance decreased without mint - likely a deposit
             txType = 'deposit';
             amount = prePubAmount - postPubAmount;
-          } else if (postPubAmount > prePubAmount && Math.abs(postPubAmount - prePubAmount) > 0.0001) {
-            // Public balance increased - likely a withdraw
-            txType = 'withdraw';
-            amount = postPubAmount - prePubAmount;
           }
+          // Note: We no longer assume public increase = withdraw (could be mint)
 
-          if (txType && Math.abs(amount) >= 0) {
+          if (txType && (amount > 0 || txType === 'apply')) {
             const newTx: CTTransaction = {
               id: sigInfo.signature.slice(0, 16),
               type: txType,
@@ -1171,5 +1184,6 @@ export function useConfidentialTransfer() {
     withdrawFromConfidential,
     isAccountConfigured,
     fetchTransactionHistory,
+    clearTransactionHistory,
   };
 }
