@@ -18,61 +18,24 @@
 
     <!-- setup complete -->
     <div v-else class="balance-section">
-      <div class="token-groups">
-        <!-- cSOL balances -->
-        <div class="token-group">
-          <div class="token-header">
-            <span class="token-icon sol">◎</span>
-            <span class="token-name">cSOL</span>
-          </div>
-          <div class="token-balances">
-            <div class="balance-row">
-              <span class="balance-type">Public</span>
-              <span class="balance-value mono">{{ formatBalance(solPublicBalance, 4) }}</span>
-            </div>
-            <div class="balance-row pending">
-              <span class="balance-type">
-                Pending
-                <span class="info-icon" data-tooltip="Pending balance needs to be applied before it can be used">!</span>
-              </span>
-              <span class="balance-value mono">{{ formatBalance(solPendingBalance, 4) }}</span>
-              <button
-                v-if="solPendingBalance > 0"
-                class="btn btn-tiny btn-apply"
-                :disabled="loading"
-                @click="handleApplyPending('SOL')"
-              >
-                Apply
-              </button>
-            </div>
-            <div class="balance-row confidential">
-              <span class="balance-type">
-                Private
-                <span class="info-icon" data-tooltip="Private balances are only visible to you by default">!</span>
-              </span>
-              <span class="balance-value mono blur-hover">{{ formatBalance(solConfidentialBalance, 4) }}</span>
-            </div>
-          </div>
-          <div class="token-actions">
+      <!-- token groups with optional overlay -->
+      <div class="token-groups-container">
+        <!-- unlock overlay when elgamal key not derived -->
+        <div v-if="!elGamalPublicKey" class="unlock-overlay">
+          <div class="unlock-content">
+            <div class="unlock-icon">&#x1F512;</div>
+            <p class="unlock-text">Private balances are encrypted</p>
             <button
-              class="btn btn-small"
-              :disabled="loading || solPublicBalance <= 0 || !isSolAccountConfigured"
-              :title="!isSolAccountConfigured ? 'Configure account first' : ''"
-              @click="openDepositModal('SOL')"
+              class="btn btn-unlock"
+              :disabled="derivingKey"
+              @click="handleDeriveKey"
             >
-              Deposit →
-            </button>
-            <button
-              class="btn btn-small btn-secondary"
-              :disabled="loading || solConfidentialBalance <= 0 || !isSolAccountConfigured"
-              :title="!isSolAccountConfigured ? 'Configure account first' : ''"
-              @click="openWithdrawModal('SOL')"
-            >
-              ← Withdraw
+              {{ derivingKey ? 'Unlocking...' : 'Unlock Private Balance' }}
             </button>
           </div>
         </div>
 
+        <div class="token-groups">
         <!-- cUSDC balances -->
         <div class="token-group">
           <div class="token-header">
@@ -89,22 +52,32 @@
                 Pending
                 <span class="info-icon" data-tooltip="Pending balance needs to be applied before it can be used">!</span>
               </span>
-              <span class="balance-value mono">{{ formatBalance(usdcPendingBalance, 2) }}</span>
-              <button
-                v-if="usdcPendingBalance > 0"
-                class="btn btn-tiny btn-apply"
-                :disabled="loading"
-                @click="handleApplyPending('USDC')"
-              >
-                Apply
-              </button>
+              <template v-if="elGamalPublicKey">
+                <span class="balance-value mono">{{ formatBalance(usdcPendingBalance, 2) }}</span>
+                <button
+                  v-if="usdcPendingBalance > 0"
+                  class="btn btn-tiny btn-apply"
+                  :disabled="loading"
+                  @click="handleApplyPending('USDC')"
+                >
+                  Apply
+                </button>
+              </template>
+              <span v-else class="balance-value locked">
+                <span class="lock-icon">&#x1F512;</span>
+              </span>
             </div>
             <div class="balance-row confidential">
               <span class="balance-type">
                 Private
                 <span class="info-icon" data-tooltip="Private balances are only visible to you by default">!</span>
               </span>
-              <span class="balance-value mono blur-hover">{{ formatBalance(usdcConfidentialBalance, 2) }}</span>
+              <template v-if="elGamalPublicKey">
+                <span class="balance-value mono blur-hover">{{ formatBalance(usdcConfidentialBalance, 2) }}</span>
+              </template>
+              <span v-else class="balance-value locked">
+                <span class="lock-icon">&#x1F512;</span>
+              </span>
             </div>
           </div>
           <div class="token-actions">
@@ -127,68 +100,12 @@
           </div>
         </div>
       </div>
-
-      <!-- setup required notice -->
-      <div v-if="elGamalPublicKey && (!isSolAccountConfigured || !isUsdcAccountConfigured)" class="setup-notice">
-        ⚠️ Click "Store On-Chain" below to enable deposits & withdrawals
-      </div>
-
-      <!-- elgamal public key -->
-      <div class="elgamal-section">
-        <div class="elgamal-header">
-          <span class="elgamal-label">ElGamal Public Key</span>
-          <span class="elgamal-icon">&#x1F511;</span>
-        </div>
-        <div v-if="elGamalPublicKey" class="elgamal-key-section">
-          <div class="elgamal-key">
-            <span class="key-value mono" :title="elGamalPublicKey">{{
-              shortenKey(elGamalPublicKey)
-            }}</span>
-            <button
-              class="copy-btn"
-              @click="navigator.clipboard.writeText(elGamalPublicKey)"
-            >
-              Copy
-            </button>
-          </div>
-          <div v-if="!isSolAccountConfigured || !isUsdcAccountConfigured" class="elgamal-configure">
-            <button
-              class="btn btn-small btn-primary"
-              :disabled="configuringAccount"
-              @click="handleConfigureAccount"
-            >
-              {{ configuringAccount ? 'Configuring...' : 'Store On-Chain' }}
-            </button>
-          </div>
-          <div v-else class="elgamal-configured">
-            <span class="configured-badge">✓ Stored On-Chain</span>
-          </div>
-        </div>
-        <div v-else class="elgamal-derive">
-          <p class="derive-text">
-            Derive your encryption key to enable private transfers
-          </p>
-          <button
-            class="btn btn-small btn-outline"
-            :disabled="derivingKey"
-            @click="handleDeriveKey"
-          >
-            {{ derivingKey ? 'Signing...' : 'Derive Key' }}
-          </button>
-        </div>
       </div>
 
       <!-- mint test tokens (dev only) -->
       <div v-if="isDev" class="dev-actions">
         <span class="dev-label">Dev Tools</span>
         <div class="dev-buttons">
-          <button
-            class="btn btn-dev"
-            :disabled="loading"
-            @click="handleMintTokens('SOL')"
-          >
-            {{ loading ? 'Minting...' : 'Mint 100 cSOL' }}
-          </button>
           <button
             class="btn btn-dev"
             :disabled="loading"
@@ -214,17 +131,15 @@
       <div class="modal">
         <h3>Deposit to c{{ selectedToken }}</h3>
         <p class="modal-desc">
-          Move {{ selectedToken }} from public to private balance. Once deposited, your
+          Move USDC from public to private balance. Once deposited, your
           balance will be encrypted.
         </p>
 
         <div class="modal-token-info">
-          <span class="token-icon" :class="selectedToken === 'SOL' ? 'sol' : 'usdc'">
-            {{ selectedToken === 'SOL' ? '◎' : '$' }}
-          </span>
-          <span class="token-label">c{{ selectedToken }}</span>
+          <span class="token-icon usdc">$</span>
+          <span class="token-label">cUSDC</span>
           <span class="available-balance mono">
-            Available: {{ formatBalance(selectedToken === 'SOL' ? solPublicBalance : usdcPublicBalance, selectedToken === 'SOL' ? 4 : 2) }}
+            Available: {{ formatBalance(usdcPublicBalance, 2) }}
           </span>
         </div>
 
@@ -233,12 +148,12 @@
           <input
             v-model.number="depositAmount"
             type="number"
-            :max="selectedToken === 'SOL' ? solPublicBalance : usdcPublicBalance"
+            :max="usdcPublicBalance"
             min="0"
-            :step="selectedToken === 'SOL' ? '0.0001' : '0.01'"
+            step="0.01"
             placeholder="0.00"
           />
-          <button class="max-btn" @click="depositAmount = selectedToken === 'SOL' ? solPublicBalance : usdcPublicBalance">
+          <button class="max-btn" @click="depositAmount = usdcPublicBalance">
             MAX
           </button>
         </div>
@@ -249,9 +164,7 @@
           </button>
           <button
             class="btn btn-primary"
-            :disabled="
-              loading || depositAmount <= 0 || depositAmount > (selectedToken === 'SOL' ? solPublicBalance : usdcPublicBalance)
-            "
+            :disabled="loading || depositAmount <= 0 || depositAmount > usdcPublicBalance"
             @click="handleDeposit"
           >
             {{ loading ? 'Depositing...' : 'Deposit' }}
@@ -267,19 +180,17 @@
       @click.self="closeWithdrawModal"
     >
       <div class="modal">
-        <h3>Withdraw from c{{ selectedToken }}</h3>
+        <h3>Withdraw from cUSDC</h3>
         <p class="modal-desc">
-          Move {{ selectedToken }} from private to public balance. This requires generating a
+          Move USDC from private to public balance. This requires generating a
           ZK proof.
         </p>
 
         <div class="modal-token-info">
-          <span class="token-icon" :class="selectedToken === 'SOL' ? 'sol' : 'usdc'">
-            {{ selectedToken === 'SOL' ? '◎' : '$' }}
-          </span>
-          <span class="token-label">c{{ selectedToken }}</span>
+          <span class="token-icon usdc">$</span>
+          <span class="token-label">cUSDC</span>
           <span class="available-balance mono">
-            Available: {{ formatBalance(selectedToken === 'SOL' ? solConfidentialBalance : usdcConfidentialBalance, selectedToken === 'SOL' ? 4 : 2) }}
+            Available: {{ formatBalance(usdcConfidentialBalance, 2) }}
           </span>
         </div>
 
@@ -288,12 +199,12 @@
           <input
             v-model.number="withdrawAmount"
             type="number"
-            :max="selectedToken === 'SOL' ? solConfidentialBalance : usdcConfidentialBalance"
+            :max="usdcConfidentialBalance"
             min="0"
-            :step="selectedToken === 'SOL' ? '0.0001' : '0.01'"
+            step="0.01"
             placeholder="0.00"
           />
-          <button class="max-btn" @click="withdrawAmount = selectedToken === 'SOL' ? solConfidentialBalance : usdcConfidentialBalance">
+          <button class="max-btn" @click="withdrawAmount = usdcConfidentialBalance">
             MAX
           </button>
         </div>
@@ -319,11 +230,7 @@
           </button>
           <button
             class="btn btn-primary"
-            :disabled="
-              loading ||
-              withdrawAmount <= 0 ||
-              withdrawAmount > (selectedToken === 'SOL' ? solConfidentialBalance : usdcConfidentialBalance)
-            "
+            :disabled="loading || withdrawAmount <= 0 || withdrawAmount > usdcConfidentialBalance"
             @click="handleWithdraw"
           >
             {{ withdrawProgress ? withdrawProgress.currentStep : (loading ? 'Withdrawing...' : 'Withdraw') }}
@@ -363,15 +270,9 @@ const {
 } = useConfidentialTransfer();
 
 // Token type
-type TokenType = 'SOL' | 'USDC';
+type TokenType = 'USDC';
 
 const isSetup = ref(false);
-
-// SOL balances
-const solPublicBalance = ref(0);
-const solPendingBalance = ref(0);
-const solConfidentialBalance = ref(0);
-const isSolAccountConfigured = ref(false);
 
 // USDC balances
 const usdcPublicBalance = ref(0);
@@ -382,7 +283,7 @@ const isUsdcAccountConfigured = ref(false);
 // Modal state
 const showDepositModal = ref(false);
 const showWithdrawModal = ref(false);
-const selectedToken = ref<TokenType>('SOL');
+const selectedToken = ref<TokenType>('USDC');
 const depositAmount = ref(0);
 const withdrawAmount = ref(0);
 
@@ -441,7 +342,6 @@ async function checkAccountConfiguredStatus() {
   if (!props.wallet?.publicKey) return;
 
   const configured = await isAccountConfigured(props.wallet);
-  isSolAccountConfigured.value = configured;
   isUsdcAccountConfigured.value = configured;
 
   if (configured) {
@@ -449,19 +349,19 @@ async function checkAccountConfiguredStatus() {
   }
 }
 
-// refresh balances for both tokens
+// refresh USDC balances
 async function refreshBalances() {
   if (!props.wallet?.publicKey) return;
 
-  // Fetch SOL balances
-  solPublicBalance.value = await getPublicBalance(props.wallet, 'SOL');
-  solPendingBalance.value = await getPendingBalance(props.wallet, 'SOL');
-  solConfidentialBalance.value = await getConfidentialBalance(props.wallet, 'SOL');
-
-  // Fetch USDC balances
+  // Fetch public balance (always available)
   usdcPublicBalance.value = await getPublicBalance(props.wallet, 'USDC');
-  usdcPendingBalance.value = await getPendingBalance(props.wallet, 'USDC');
-  usdcConfidentialBalance.value = await getConfidentialBalance(props.wallet, 'USDC');
+
+  // Only fetch pending/confidential balances if ElGamal key is derived
+  // (these require decryption)
+  if (elGamalPublicKey.value) {
+    usdcPendingBalance.value = await getPendingBalance(props.wallet, 'USDC');
+    usdcConfidentialBalance.value = await getConfidentialBalance(props.wallet, 'USDC');
+  }
 }
 
 // setup confidential transfers
@@ -469,7 +369,7 @@ async function handleSetup() {
   if (!props.wallet?.publicKey) return;
 
   try {
-    // Setup both SOL and USDC mints with CT extension
+    // Setup USDC mint with CT extension
     await setupTestMint(props.wallet);
     await setupTokenAccount(props.wallet);
     isSetup.value = true;
@@ -498,6 +398,9 @@ async function handleDeriveKey() {
   derivingKey.value = true;
   try {
     await deriveElGamalKeypair(props.wallet);
+    // Refresh balances now that we can decrypt them
+    await refreshBalances();
+    await checkAccountConfiguredStatus();
   } catch (e) {
     console.error('key derivation failed:', e);
   } finally {
@@ -511,22 +414,13 @@ async function handleConfigureAccount() {
 
   configuringAccount.value = true;
   try {
-    // Configure account for the current mint (handles both tokens)
     await configureConfidentialTransferAccount(props.wallet);
-    // Mark both as configured since they share the same ElGamal key
-    isSolAccountConfigured.value = true;
     isUsdcAccountConfigured.value = true;
   } catch (e) {
     console.error('configure account failed:', e);
   } finally {
     configuringAccount.value = false;
   }
-}
-
-// shorten a hex key for display
-function shortenKey(key: string): string {
-  if (!key || key.length < 16) return key;
-  return `${key.slice(0, 8)}...${key.slice(-8)}`;
 }
 
 // deposit to confidential balance for selected token
@@ -649,15 +543,9 @@ onMounted(() => {
 }
 
 .token-groups {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
-}
-
-@media (max-width: 500px) {
-  .token-groups {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* token group */
@@ -688,10 +576,6 @@ onMounted(() => {
   font-weight: 700;
   color: white;
   flex-shrink: 0;
-}
-
-.token-icon.sol {
-  background: linear-gradient(135deg, #9945ff 0%, #14f195 100%);
 }
 
 .token-icon.usdc {
@@ -734,16 +618,18 @@ onMounted(() => {
 }
 
 .btn-tiny {
-  padding: 0.2rem 0.4rem;
+  padding: 0.125rem 0.3rem;
   font-size: 0.5rem;
-  border-radius: 4px;
+  border-radius: 3px;
   flex-shrink: 0;
+  line-height: 1;
 }
 
 .btn-apply {
-  background: rgba(245, 158, 11, 0.2);
+  background: rgba(245, 158, 11, 0.15);
   color: #d97706;
-  border: 1px solid rgba(245, 158, 11, 0.3);
+  border: none;
+  font-weight: 500;
 }
 
 .btn-apply:hover:not(:disabled) {
@@ -845,6 +731,79 @@ onMounted(() => {
   filter: blur(0);
 }
 
+/* locked balance state */
+.balance-value.locked {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--text-muted);
+}
+
+.lock-icon {
+  font-size: 0.875rem;
+  opacity: 0.6;
+}
+
+/* token groups container with overlay support */
+.token-groups-container {
+  position: relative;
+}
+
+/* unlock overlay */
+.unlock-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(4px);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.unlock-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1rem;
+}
+
+.unlock-content .unlock-icon {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.unlock-text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.btn-unlock {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-unlock:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.btn-unlock:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* actions */
 .balance-actions {
   display: flex;
@@ -891,105 +850,6 @@ onMounted(() => {
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-/* elgamal section */
-.elgamal-section {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid rgba(15, 23, 42, 0.08);
-}
-
-.elgamal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.elgamal-label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--text-muted);
-}
-
-.elgamal-icon {
-  font-size: 1rem;
-}
-
-.elgamal-key-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.elgamal-key {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: rgba(99, 102, 241, 0.1);
-  border-radius: 8px;
-}
-
-.elgamal-configure {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.elgamal-configured {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.configured-badge {
-  font-size: 0.75rem;
-  color: #10b981;
-  font-weight: 500;
-}
-
-.key-value {
-  font-size: 0.75rem;
-  color: #6366f1;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.copy-btn {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.625rem;
-  font-weight: 600;
-  background: rgba(99, 102, 241, 0.2);
-  color: #6366f1;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.copy-btn:hover {
-  background: rgba(99, 102, 241, 0.3);
-}
-
-.elgamal-derive {
-  text-align: center;
-}
-
-.derive-text {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-bottom: 0.5rem;
-}
-
-.btn-outline {
-  background: transparent;
-  border: 1px solid rgba(15, 23, 42, 0.2);
-  color: var(--text-secondary);
-}
-
-.btn-outline:hover:not(:disabled) {
-  background: rgba(15, 23, 42, 0.05);
 }
 
 /* dev actions */
@@ -1144,18 +1004,6 @@ onMounted(() => {
 
 .modal-actions .btn {
   flex: 1;
-}
-
-/* setup notice */
-.setup-notice {
-  margin-top: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.2);
-  border-radius: 8px;
-  font-size: 0.75rem;
-  color: #d97706;
-  text-align: center;
 }
 
 /* withdraw progress */

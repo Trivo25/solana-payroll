@@ -667,15 +667,29 @@ export function useConfidentialTransfer() {
           }
         }
       }
+      console.log('[CT] Current available balance:', currentAvailable.toString());
 
-      // For MVP, estimate new balance (actual pending would require ElGamal decryption)
-      // In a full implementation, we'd read and decrypt the pending balance ciphertexts
-      // For now, we use the public balance that was deposited
-      const publicBalance = await getPublicBalance(wallet, token);
-      const newAvailableBalance = currentAvailable; // Will be updated by on-chain program
+      // Read and decrypt pending balance
+      const elGamal = getElGamalKeypair();
+      const pendingCiphertexts = readPendingBalanceCiphertexts(accountInfo.data);
+      let pendingAmount = 0n;
+      if (pendingCiphertexts) {
+        const loCiphertext = zkSdk.ElGamalCiphertext.fromBytes(pendingCiphertexts.lo);
+        const hiCiphertext = zkSdk.ElGamalCiphertext.fromBytes(pendingCiphertexts.hi);
+        if (loCiphertext && hiCiphertext) {
+          const secretKey = elGamal.secret();
+          const loAmount = secretKey.decrypt(loCiphertext);
+          const hiAmount = secretKey.decrypt(hiCiphertext);
+          pendingAmount = loAmount + (hiAmount << 16n);
+        }
+      }
+      console.log('[CT] Pending amount:', pendingAmount.toString());
 
-      // Encrypt the new balance (the program will compute the actual value)
-      // We need to provide a reasonable estimate
+      // Calculate new available balance = current + pending
+      const newAvailableBalance = currentAvailable + pendingAmount;
+      console.log('[CT] New available balance:', newAvailableBalance.toString());
+
+      // Encrypt the new balance for the decryptable_available_balance field
       const newDecryptableBalance = aeKey.encrypt(newAvailableBalance);
       const newDecryptableBytes = newDecryptableBalance.toBytes();
 
