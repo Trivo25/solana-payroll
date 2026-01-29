@@ -35,6 +35,7 @@ import {
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { RistrettoPoint } from '@noble/curves/ed25519';
 
 // ============================================
 // CONFIGURATION - ZK-Edge Cluster
@@ -73,9 +74,11 @@ let zkSdk: {
   GroupedElGamalCiphertext2Handles: any;
   GroupedElGamalCiphertext3Handles: any;
   CiphertextCiphertextEqualityProofData: any;
+  CiphertextCommitmentEqualityProofData: any;
   BatchedGroupedCiphertext2HandlesValidityProofData: any;
   BatchedGroupedCiphertext3HandlesValidityProofData: any;
   BatchedRangeProofU64Data: any;
+  BatchedRangeProofU128Data: any;
 };
 
 // ============================================
@@ -98,6 +101,147 @@ function loadKeypair(filepath?: string): Keypair {
 function formatBalance(amount: bigint | number, decimals: number): string {
   const value = typeof amount === 'bigint' ? Number(amount) : amount;
   return (value / Math.pow(10, decimals)).toFixed(decimals);
+}
+
+// ============================================
+// RISTRETTO POINT ARITHMETIC FOR HOMOMORPHIC OPERATIONS
+// ============================================
+
+/**
+ * ElGamal ciphertext structure:
+ * - 32 bytes: Pedersen commitment (Ristretto point)
+ * - 32 bytes: Decrypt handle (Ristretto point)
+ */
+interface CiphertextComponents {
+  commitment: Uint8Array;
+  handle: Uint8Array;
+}
+
+/**
+ * Parse an ElGamal ciphertext into its commitment and handle components
+ */
+function parseCiphertext(ciphertextBytes: Uint8Array): CiphertextComponents {
+  if (ciphertextBytes.length !== 64) {
+    throw new Error(`Invalid ciphertext length: ${ciphertextBytes.length}, expected 64`);
+  }
+  return {
+    commitment: ciphertextBytes.slice(0, 32),
+    handle: ciphertextBytes.slice(32, 64),
+  };
+}
+
+/**
+ * Combine commitment and handle back into ciphertext bytes
+ */
+function combineCiphertext(components: CiphertextComponents): Uint8Array {
+  const result = new Uint8Array(64);
+  result.set(components.commitment, 0);
+  result.set(components.handle, 32);
+  return result;
+}
+
+/**
+ * Subtract two Ristretto points (P1 - P2)
+ */
+function subtractPoints(p1Bytes: Uint8Array, p2Bytes: Uint8Array): Uint8Array {
+  try {
+    const p1 = RistrettoPoint.fromBytes(p1Bytes);
+    const p2 = RistrettoPoint.fromBytes(p2Bytes);
+    const result = p1.subtract(p2);
+    return result.toBytes();
+  } catch (e: any) {
+    console.error('subtractPoints failed:');
+    console.error('  p1Bytes:', Buffer.from(p1Bytes).toString('hex'));
+    console.error('  p2Bytes:', Buffer.from(p2Bytes).toString('hex'));
+    throw new Error(`subtractPoints failed: ${e.message || e}`);
+  }
+}
+
+/**
+ * Add two Ristretto points (P1 + P2)
+ */
+function addPoints(p1Bytes: Uint8Array, p2Bytes: Uint8Array): Uint8Array {
+  try {
+    const p1 = RistrettoPoint.fromBytes(p1Bytes);
+    const p2 = RistrettoPoint.fromBytes(p2Bytes);
+    const result = p1.add(p2);
+    return result.toBytes();
+  } catch (e: any) {
+    console.error('addPoints failed:');
+    console.error('  p1Bytes:', Buffer.from(p1Bytes).toString('hex'));
+    console.error('  p2Bytes:', Buffer.from(p2Bytes).toString('hex'));
+    throw new Error(`addPoints failed: ${e.message || e}`);
+  }
+}
+
+/**
+ * Scalar multiply a Ristretto point (scalar * P)
+ */
+function scalarMultiply(pointBytes: Uint8Array, scalar: bigint): Uint8Array {
+  try {
+    const point = RistrettoPoint.fromBytes(pointBytes);
+    const result = point.multiply(scalar);
+    return result.toBytes();
+  } catch (e: any) {
+    console.error('scalarMultiply failed:');
+    console.error('  pointBytes:', Buffer.from(pointBytes).toString('hex'));
+    console.error('  scalar:', scalar.toString());
+    throw new Error(`scalarMultiply failed: ${e.message || e}`);
+  }
+}
+
+/**
+ * Homomorphic subtraction of ElGamal ciphertexts: C1 - C2
+ * For ElGamal: (commitment1 - commitment2, handle1 - handle2)
+ */
+function subtractCiphertexts(c1Bytes: Uint8Array, c2Bytes: Uint8Array): Uint8Array {
+  const c1 = parseCiphertext(c1Bytes);
+  const c2 = parseCiphertext(c2Bytes);
+
+  return combineCiphertext({
+    commitment: subtractPoints(c1.commitment, c2.commitment),
+    handle: subtractPoints(c1.handle, c2.handle),
+  });
+}
+
+/**
+ * Homomorphic addition of ElGamal ciphertexts: C1 + C2
+ */
+function addCiphertexts(c1Bytes: Uint8Array, c2Bytes: Uint8Array): Uint8Array {
+  const c1 = parseCiphertext(c1Bytes);
+  const c2 = parseCiphertext(c2Bytes);
+
+  return combineCiphertext({
+    commitment: addPoints(c1.commitment, c2.commitment),
+    handle: addPoints(c1.handle, c2.handle),
+  });
+}
+
+/**
+ * Scalar multiply a ciphertext: scalar * C
+ */
+function scalarMultiplyCiphertext(ciphertextBytes: Uint8Array, scalar: bigint): Uint8Array {
+  const c = parseCiphertext(ciphertextBytes);
+
+  return combineCiphertext({
+    commitment: scalarMultiply(c.commitment, scalar),
+    handle: scalarMultiply(c.handle, scalar),
+  });
+}
+
+/**
+ * Combine lo and hi ciphertexts: lo + (hi << shift_bits)
+ * This replicates try_combine_lo_hi_ciphertexts from Rust
+ */
+function combineLowHighCiphertexts(
+  loBytes: Uint8Array,
+  hiBytes: Uint8Array,
+  shiftBits: number,
+): Uint8Array {
+  // hi_scaled = hi * 2^shiftBits
+  const hiScaled = scalarMultiplyCiphertext(hiBytes, BigInt(1) << BigInt(shiftBits));
+  // combined = lo + hi_scaled
+  return addCiphertexts(loBytes, hiScaled);
 }
 
 async function sendTransaction(
@@ -140,9 +284,20 @@ async function sendTransaction(
 
       // Confirm with timeout - use a simple polling approach
       let confirmed = false;
+      let txError: any = null;
       for (let i = 0; i < 30; i++) {
         try {
           const status = await connection.getSignatureStatus(signature);
+
+          // Check for transaction error first
+          if (status?.value?.err) {
+            txError = status.value.err;
+            // Transaction was included but failed - don't retry, throw immediately
+            throw new Error(
+              `Transaction failed on-chain: ${JSON.stringify(status.value.err)}`,
+            );
+          }
+
           if (
             status?.value?.confirmationStatus === 'confirmed' ||
             status?.value?.confirmationStatus === 'finalized'
@@ -150,13 +305,12 @@ async function sendTransaction(
             confirmed = true;
             break;
           }
-          if (status?.value?.err) {
-            throw new Error(
-              `Transaction failed: ${JSON.stringify(status.value.err)}`,
-            );
+        } catch (e: any) {
+          // Re-throw transaction errors, only ignore network polling errors
+          if (e.message?.includes('Transaction failed on-chain')) {
+            throw e;
           }
-        } catch (e) {
-          // Ignore polling errors
+          // Ignore other polling errors (network issues, etc.)
         }
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
@@ -164,6 +318,14 @@ async function sendTransaction(
       if (!confirmed) {
         // Try one more confirmation check
         const finalStatus = await connection.getSignatureStatus(signature);
+
+        // Check for error in final status
+        if (finalStatus?.value?.err) {
+          throw new Error(
+            `Transaction failed on-chain: ${JSON.stringify(finalStatus.value.err)}`,
+          );
+        }
+
         if (
           finalStatus?.value?.confirmationStatus === 'confirmed' ||
           finalStatus?.value?.confirmationStatus === 'finalized'
@@ -506,20 +668,28 @@ function getContextStateAccountSize(
   // - 32 bytes: context_state_authority
   // - Variable bytes: proof context data
   //
-  // Proof context sizes (approximate, from ZK SDK):
-  // - CiphertextCiphertextEquality: ~160 bytes
-  // - BatchedGroupedCiphertext2HandlesValidity: ~224 bytes
-  // - BatchedRangeProofU64: ~1088 bytes (variable based on bit length)
+  // Proof context sizes (from ZK SDK structs):
+  // - CiphertextCommitmentEqualityProofContext (used for transfers):
+  //   - source_pubkey (32) + source_ciphertext (64) + destination_commitment (32) = 128 bytes
+  // - BatchedGroupedCiphertext3HandlesValidityProofContext:
+  //   - 3 pubkeys (96) + 2 grouped ciphertexts (128 each = 256) = 352 bytes
+  // - BatchedRangeProofContext: 8×32 + 8 = 264 bytes
 
   const headerSize = 1 + 32;
 
   switch (proofType) {
     case 'equality':
-      return headerSize + 160;
+      // CiphertextCommitmentEqualityProofContext: 32 + 64 + 32 = 128 bytes
+      return headerSize + 128; // 161 bytes total
     case 'validity':
-      return headerSize + 224;
+      return headerSize + 352; // 385 bytes total
     case 'range':
-      return headerSize + 1088;
+      // BatchedRangeProofContext (same for U64, U128, U256):
+      // - MAX_COMMITMENTS (8) × 32 bytes for PedersenCommitments = 256 bytes
+      // - MAX_COMMITMENTS (8) × 1 byte for bit_lengths = 8 bytes
+      // Total context: 264 bytes
+      // Note: Confidential transfers use U128 (discriminator 7), not U64
+      return headerSize + 264; // 297 bytes total
     default:
       return headerSize + 256; // Default padding
   }
@@ -542,6 +712,43 @@ function createVerifyCiphertextCiphertextEqualityInstruction(
 ): TransactionInstruction {
   const data = Buffer.alloc(1 + proofData.length);
   data.writeUInt8(2, 0); // VerifyCiphertextCiphertextEquality = 2
+  Buffer.from(proofData).copy(data, 1);
+
+  const keys: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[] =
+    [];
+
+  if (contextStateAccount && contextStateAuthority) {
+    keys.push(
+      { pubkey: contextStateAccount, isSigner: false, isWritable: true },
+      { pubkey: contextStateAuthority, isSigner: false, isWritable: false },
+    );
+  }
+
+  return new TransactionInstruction({
+    keys,
+    programId: ZK_ELGAMAL_PROOF_PROGRAM_ID,
+    data,
+  });
+}
+
+/**
+ * Create instruction to verify ciphertext-commitment equality proof
+ * and store result in a context state account
+ *
+ * ZK Proof instruction discriminators:
+ * - VerifyCiphertextCommitmentEquality = 3
+ *
+ * This proof type is used for confidential transfers to prove that
+ * the new balance ciphertext (computed homomorphically) equals
+ * the commitment used in the range proof.
+ */
+function createVerifyCiphertextCommitmentEqualityInstruction(
+  proofData: Uint8Array,
+  contextStateAccount?: PublicKey,
+  contextStateAuthority?: PublicKey,
+): TransactionInstruction {
+  const data = Buffer.alloc(1 + proofData.length);
+  data.writeUInt8(3, 0); // VerifyCiphertextCommitmentEquality = 3
   Buffer.from(proofData).copy(data, 1);
 
   const keys: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[] =
@@ -618,6 +825,44 @@ function createVerifyBatchedRangeProofU64Instruction(
 ): TransactionInstruction {
   const data = Buffer.alloc(1 + proofData.length);
   data.writeUInt8(6, 0); // VerifyBatchedRangeProofU64 = 6
+  Buffer.from(proofData).copy(data, 1);
+
+  const keys: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[] =
+    [];
+
+  if (contextStateAccount && contextStateAuthority) {
+    keys.push(
+      { pubkey: contextStateAccount, isSigner: false, isWritable: true },
+      { pubkey: contextStateAuthority, isSigner: false, isWritable: false },
+    );
+  }
+
+  return new TransactionInstruction({
+    keys,
+    programId: ZK_ELGAMAL_PROOF_PROGRAM_ID,
+    data,
+  });
+}
+
+/**
+ * Create instruction to verify batched range proof U128
+ *
+ * ZK Proof instruction discriminators:
+ * - VerifyBatchedRangeProofU128 = 7
+ *
+ * Confidential transfers use U128 range proofs with 4 commitments:
+ * - new_available_balance (64 bits)
+ * - transfer_amount_lo (16 bits)
+ * - transfer_amount_hi (32 bits)
+ * - padding (16 bits)
+ */
+function createVerifyBatchedRangeProofU128Instruction(
+  proofData: Uint8Array,
+  contextStateAccount?: PublicKey,
+  contextStateAuthority?: PublicKey,
+): TransactionInstruction {
+  const data = Buffer.alloc(1 + proofData.length);
+  data.writeUInt8(7, 0); // VerifyBatchedRangeProofU128 = 7
   Buffer.from(proofData).copy(data, 1);
 
   const keys: { pubkey: PublicKey; isSigner: boolean; isWritable: boolean }[] =
@@ -1042,30 +1287,32 @@ async function main() {
     const keyExports = [
       'ElGamalKeypair',
       'ElGamalPubkey',
+      'ElGamalCiphertext',
       'AeKey',
       'AeCiphertext',
       'PubkeyValidityProofData',
-      'CiphertextCiphertextEqualityProofData',
-      'BatchedGroupedCiphertext2HandlesValidityProofData',
+      'CiphertextCommitmentEqualityProofData',
+      'BatchedGroupedCiphertext3HandlesValidityProofData',
       'BatchedRangeProofU64Data',
+      'BatchedRangeProofU128Data',
     ];
     const available = keyExports.filter((k) => k in zkSdk);
     console.log(`   Available: ${available.join(', ')}`);
 
     // Verify transfer proof types are available
-    if (!('CiphertextCiphertextEqualityProofData' in zkSdk)) {
+    if (!('CiphertextCommitmentEqualityProofData' in zkSdk)) {
       console.log(
-        '   ⚠️  CiphertextCiphertextEqualityProofData not available - Step 7 may not work',
+        '   ⚠️  CiphertextCommitmentEqualityProofData not available - Step 7 may not work',
       );
     }
-    if (!('BatchedGroupedCiphertext2HandlesValidityProofData' in zkSdk)) {
+    if (!('BatchedGroupedCiphertext3HandlesValidityProofData' in zkSdk)) {
       console.log(
-        '   ⚠️  BatchedGroupedCiphertext2HandlesValidityProofData not available - Step 7 may not work',
+        '   ⚠️  BatchedGroupedCiphertext3HandlesValidityProofData not available - Step 7 may not work',
       );
     }
-    if (!('BatchedRangeProofU64Data' in zkSdk)) {
+    if (!('BatchedRangeProofU128Data' in zkSdk)) {
       console.log(
-        '   ⚠️  BatchedRangeProofU64Data not available - Step 7 may not work',
+        '   ⚠️  BatchedRangeProofU128Data not available - Step 7 may not work',
       );
     }
   } catch (error) {
@@ -1507,20 +1754,26 @@ async function main() {
 
   // Check if the required proof types are available in the SDK
   const {
-    CiphertextCiphertextEqualityProofData,
+    CiphertextCommitmentEqualityProofData,
     BatchedGroupedCiphertext3HandlesValidityProofData,
-    BatchedRangeProofU64Data,
     PedersenOpening,
     PedersenCommitment,
     GroupedElGamalCiphertext3Handles,
+    ElGamalCiphertext,
   } = zkSdk;
 
+  const { BatchedRangeProofU128Data } = zkSdk;
+
   if (
-    !CiphertextCiphertextEqualityProofData ||
+    !CiphertextCommitmentEqualityProofData ||
     !BatchedGroupedCiphertext3HandlesValidityProofData ||
-    !BatchedRangeProofU64Data
+    !BatchedRangeProofU128Data
   ) {
     console.log('   ⚠️  Required proof types not available in ZK SDK');
+    console.log(
+      '   Missing: CiphertextCommitmentEqualityProofData =',
+      !!CiphertextCommitmentEqualityProofData,
+    );
     console.log('   Skipping Step 7...');
   } else {
     try {
@@ -1543,38 +1796,7 @@ async function main() {
       const auditorElGamalPubkey = auditorKeypair.pubkey();
 
       // ============================================
-      // Step 7b: Generate the equality proof
-      // ============================================
-      // CiphertextCiphertextEqualityProofData proves that two ciphertexts encrypt the same value.
-      // Constructor: (first_keypair, second_pubkey, first_ciphertext, second_ciphertext, second_opening, amount)
-      console.log('   - Generating equality proof...');
-
-      // Create first ciphertext (encrypted under sender's pubkey)
-      const firstCiphertext = senderElGamalPubkey.encryptU64(TRANSFER_AMOUNT);
-
-      // Create second ciphertext (encrypted under recipient's pubkey) with an opening
-      const secondOpening = new PedersenOpening();
-      const secondCiphertext = recipientElGamalPubkey.encryptWith(
-        TRANSFER_AMOUNT,
-        secondOpening,
-      );
-
-      const equalityProof = new CiphertextCiphertextEqualityProofData(
-        senderElGamal, // first_keypair (sender's keypair - has secret key for proof)
-        recipientElGamalPubkey, // second_pubkey (recipient's pubkey)
-        firstCiphertext, // first_ciphertext (encrypted under sender's pubkey)
-        secondCiphertext, // second_ciphertext (encrypted under recipient's pubkey)
-        secondOpening, // second_opening (needed to prove equality)
-        TRANSFER_AMOUNT, // amount
-      );
-
-      const equalityProofBytes = equalityProof.toBytes();
-      console.log(`     Size: ${equalityProofBytes.length} bytes`);
-      equalityProof.verify();
-      console.log('     ✅ Verified locally');
-
-      // ============================================
-      // Step 7c: Generate the ciphertext validity proof
+      // Step 7b: First, generate the validity proof (needs to come before equality)
       // ============================================
       // BatchedGroupedCiphertext3HandlesValidityProofData proves grouped ciphertexts are well-formed.
       // The 3 handles are: source (sender), destination (recipient), and auditor
@@ -1583,10 +1805,13 @@ async function main() {
         '   - Generating ciphertext validity proof (3 handles: source, destination, auditor)...',
       );
 
-      // For batched validity, we split the amount into lo and hi parts (48 bits + 16 bits = 64 bits)
-      // The SPL confidential transfer uses this split for efficiency
-      const amountLo = TRANSFER_AMOUNT; // For small amounts, all fits in lo
-      const amountHi = BigInt(0); // Hi is zero for small amounts
+      // For batched validity, we split the amount into lo (16 bits) and hi (32 bits) parts
+      // The SPL confidential transfer uses this split for range proof efficiency
+      // Lo holds lower 16 bits (max 65535), Hi holds upper bits
+      const amountLo = TRANSFER_AMOUNT & BigInt(0xFFFF); // Lower 16 bits
+      const amountHi = TRANSFER_AMOUNT >> BigInt(16); // Upper bits (shifted right by 16)
+
+      console.log(`     Amount split: lo=${amountLo} (${amountLo.toString(16)}h), hi=${amountHi} (${amountHi.toString(16)}h)`);
 
       const openingLo = new PedersenOpening();
       const openingHi = new PedersenOpening();
@@ -1627,41 +1852,216 @@ async function main() {
       console.log('     ✅ Verified locally');
 
       // ============================================
-      // Step 7d: Generate the range proof
+      // Step 7d: Prepare for range and equality proofs
       // ============================================
-      // BatchedRangeProofU64Data proves values are within valid range.
-      // Constructor: (commitments: PedersenCommitment[], amounts: BigUint64Array, bit_lengths: Uint8Array, openings: PedersenOpening[])
-      console.log('   - Generating range proof...');
+      // We need to compute the new balance ciphertext FIRST, then create both
+      // the range proof and equality proof while the Pedersen opening is still alive.
+      // (WASM objects may be freed after use, so we can't serialize/deserialize the opening)
 
-      // Create Pedersen commitments and openings for range proof
-      // We need to prove: transfer_amount >= 0 and remaining_balance >= 0
-      const rangeOpening1 = new PedersenOpening();
-      const rangeOpening2 = new PedersenOpening();
+      console.log('   - Preparing new balance ciphertext for proofs...');
 
-      const commitment1 = PedersenCommitment.from(
-        TRANSFER_AMOUNT,
-        rangeOpening1,
+      // Step 1: Get the current available balance ciphertext from the sender's token account
+      console.log('     Reading current balance ciphertext from account...');
+      const senderAccountInfo = await connection.getAccountInfo(senderTokenAccount);
+      if (!senderAccountInfo) {
+        throw new Error('Sender token account not found');
+      }
+
+      // Token-2022 account structure:
+      // - Token account base: 165 bytes
+      // - Extension type discriminator (2 bytes)
+      // - Extension length (2 bytes)
+      // - Extension data: ConfidentialTransferAccount
+      //   - approved (1 byte)
+      //   - elgamal_pubkey (32 bytes)
+      //   - pending_balance_lo (64 bytes ElGamalCiphertext)
+      //   - pending_balance_hi (64 bytes)
+      //   - available_balance (64 bytes) <-- offset 161 from extension start
+      //   - decryptable_available_balance (36 bytes AeCiphertext)
+
+      const accountData = senderAccountInfo.data;
+      const TOKEN_ACCOUNT_SIZE = 165;
+      let offset = TOKEN_ACCOUNT_SIZE;
+
+      // Skip account type byte if present (first extension indicator)
+      if (accountData.length > TOKEN_ACCOUNT_SIZE) {
+        offset += 1; // Account type byte
+      }
+
+      // Search for ConfidentialTransferAccount extension (type = 5)
+      let currentBalanceCiphertextBytes: Uint8Array | null = null;
+      while (offset + 4 <= accountData.length) {
+        const extensionType = accountData.readUInt16LE(offset);
+        const extensionLength = accountData.readUInt16LE(offset + 2);
+        console.log(`     Extension at ${offset}: type=${extensionType}, length=${extensionLength}`);
+
+        if (extensionType === 5) { // ConfidentialTransferAccount
+          offset += 4; // Skip type and length
+          // available_balance is at offset: 1 (approved) + 32 (pubkey) + 64 (pending_lo) + 64 (pending_hi) = 161
+          const availableBalanceOffset = offset + 1 + 32 + 64 + 64;
+          currentBalanceCiphertextBytes = accountData.slice(
+            availableBalanceOffset,
+            availableBalanceOffset + 64,
+          );
+          console.log(`     Found available_balance at offset ${availableBalanceOffset}`);
+          console.log(`     Current balance ciphertext: ${currentBalanceCiphertextBytes.length} bytes`);
+          break;
+        }
+        offset += 4 + extensionLength;
+      }
+
+      if (!currentBalanceCiphertextBytes) {
+        throw new Error('ConfidentialTransferAccount extension not found in account data');
+      }
+
+      // Step 2: Extract source ciphertexts from the grouped ciphertexts
+      // A grouped ciphertext (3 handles) is: Commitment (32) + Handle1 (32) + Handle2 (32) + Handle3 (32) = 128 bytes
+      // The source ElGamal ciphertext is: Commitment (32) + Handle1 (32) = first 64 bytes
+      console.log(`     Extracting source ciphertexts from grouped ciphertexts...`);
+
+      const groupedLoBytes = groupedCiphertextLo.toBytes();
+      const groupedHiBytes = groupedCiphertextHi.toBytes();
+      const sourceCiphertextLoBytes = groupedLoBytes.slice(0, 64);
+      const sourceCiphertextHiBytes = groupedHiBytes.slice(0, 64);
+
+      // Step 3: Combine lo + hi ciphertexts into a single transfer amount ciphertext
+      // combined = lo + (hi * 2^16)
+      const transferAmountCiphertextBytes = combineLowHighCiphertexts(
+        sourceCiphertextLoBytes,
+        sourceCiphertextHiBytes,
+        16, // TRANSFER_AMOUNT_LO_BITS
       );
-      const commitment2 = PedersenCommitment.from(
+      console.log(`     Combined transfer ciphertext: ${transferAmountCiphertextBytes.length} bytes`);
+
+      // Step 4: Compute new_balance_ciphertext = current_balance - transfer_amount (homomorphic)
+      const newBalanceCiphertextBytes = subtractCiphertexts(
+        currentBalanceCiphertextBytes,
+        transferAmountCiphertextBytes,
+      );
+      console.log(`     Computed new balance ciphertext: ${newBalanceCiphertextBytes.length} bytes`);
+
+      // Convert to SDK type
+      const newBalanceCiphertext = ElGamalCiphertext.fromBytes(newBalanceCiphertextBytes);
+      if (!newBalanceCiphertext) {
+        throw new Error('Failed to parse new balance ciphertext');
+      }
+      console.log(`     ✓ Created ElGamalCiphertext for new balance`);
+
+      // ============================================
+      // Step 7e: Generate equality and range proofs
+      // ============================================
+      // We must create BOTH proofs using the same Pedersen commitment/opening.
+      // WASM objects may be consumed by constructors (Rust ownership semantics),
+      // so we create the equality proof FIRST while the opening is fresh.
+
+      console.log('   - Creating Pedersen commitment for new balance...');
+
+      // Create Pedersen commitment for new available balance
+      const newAvailableBalanceOpening = new PedersenOpening();
+      const newAvailableBalanceCommitment = PedersenCommitment.from(
         newSenderBalance,
-        rangeOpening2,
+        newAvailableBalanceOpening,
+      );
+
+      // Note: The WASM objects remain valid after being passed to proof constructors,
+      // so we can reuse them for both the equality and range proofs.
+
+      // ============================================
+      // Step 7f: Generate the equality proof FIRST
+      // ============================================
+      // CiphertextCommitmentEqualityProofData proves that a ciphertext encrypts the same value
+      // as a commitment commits to. This links the homomorphically computed new balance ciphertext
+      // to the commitment used in the range proof.
+      console.log('   - Generating equality proof (ciphertext-commitment)...');
+
+      let equalityProofBytes: Uint8Array;
+      try {
+        const equalityProof = new CiphertextCommitmentEqualityProofData(
+          senderElGamal, // keypair (need secret key to prove decryption)
+          newBalanceCiphertext, // ciphertext (the homomorphic result)
+          newAvailableBalanceCommitment, // commitment
+          newAvailableBalanceOpening, // opening
+          newSenderBalance, // amount (the plaintext new balance)
+        );
+
+        equalityProofBytes = equalityProof.toBytes();
+        console.log(`     Size: ${equalityProofBytes.length} bytes`);
+
+        try {
+          equalityProof.verify();
+          console.log('     ✅ Verified locally');
+        } catch (verifyError: any) {
+          console.error(`     ❌ Local verification failed: ${verifyError.message || verifyError}`);
+          throw new Error(`Equality proof local verification failed: ${verifyError.message || verifyError}`);
+        }
+      } catch (e: any) {
+        console.error(`     ❌ Failed to create equality proof: ${e.message || e}`);
+        throw e;
+      }
+
+      // ============================================
+      // Step 7g: Generate the range proof (U128)
+      // ============================================
+      // BatchedRangeProofU128Data proves values are within valid range.
+      // We try to reuse the same commitment/opening as the equality proof.
+      console.log('   - Generating range proof (U128)...');
+
+      // Try to reuse the original commitment/opening
+      // If the equality proof didn't consume them, they should still be valid
+      const rangeBalanceCommitment = newAvailableBalanceCommitment;
+      const rangeBalanceOpening = newAvailableBalanceOpening;
+
+      // Create commitments for transfer_lo and transfer_hi
+      // These must match the openings used in the grouped ciphertexts
+      const transferLoCommitment = PedersenCommitment.from(amountLo, openingLo);
+      const transferHiCommitment = PedersenCommitment.from(amountHi, openingHi);
+
+      // Create padding commitment (commitment to zero)
+      const paddingOpening = new PedersenOpening();
+      const paddingCommitment = PedersenCommitment.from(
+        BigInt(0),
+        paddingOpening,
       );
 
       // Use BigUint64Array for amounts and Uint8Array for bit lengths
-      const amounts = new BigUint64Array([TRANSFER_AMOUNT, newSenderBalance]);
-      const bitLengths = new Uint8Array([32, 32]); // Bit lengths must sum to 64
+      // Bit lengths: [64, 16, 32, 16] = 128 total
+      const amounts = new BigUint64Array([
+        newSenderBalance, // 64 bits for new available balance
+        amountLo, // 16 bits for transfer_lo
+        amountHi, // 32 bits for transfer_hi
+        BigInt(0), // 16 bits for padding
+      ]);
+      const bitLengths = new Uint8Array([64, 16, 32, 16]); // Must sum to 128
 
-      const rangeProof = new BatchedRangeProofU64Data(
-        [commitment1, commitment2],
+      const rangeProof = new BatchedRangeProofU128Data(
+        [
+          rangeBalanceCommitment,
+          transferLoCommitment,
+          transferHiCommitment,
+          paddingCommitment,
+        ],
         amounts,
         bitLengths,
-        [rangeOpening1, rangeOpening2],
+        [rangeBalanceOpening, openingLo, openingHi, paddingOpening],
       );
 
       const rangeProofBytes = rangeProof.toBytes();
       console.log(`     Size: ${rangeProofBytes.length} bytes`);
-      rangeProof.verify();
-      console.log('     ✅ Verified locally');
+
+      // Debug: show the values being proven
+      console.log(`     Proving ranges for:`);
+      console.log(`       - newSenderBalance: ${newSenderBalance} (64 bits)`);
+      console.log(`       - amountLo: ${amountLo} (16 bits)`);
+      console.log(`       - amountHi: ${amountHi} (32 bits)`);
+      console.log(`       - padding: 0 (16 bits)`);
+
+      try {
+        rangeProof.verify();
+        console.log('     ✅ Verified locally');
+      } catch (verifyError: any) {
+        console.error(`     ❌ Local verification failed: ${verifyError.message || verifyError}`);
+        throw new Error(`Range proof local verification failed: ${verifyError.message || verifyError}`);
+      }
 
       // Step 7f: Create context state accounts to store the proofs
       console.log('\n   Creating proof context state accounts...');
@@ -1718,40 +2118,90 @@ async function main() {
       });
 
       // Step 7g: Create and send context accounts + verify proofs
-      // We'll do this in separate transactions due to size constraints
+      // Split each into 2 transactions to avoid size limits
 
-      console.log('\n   Submitting equality proof...');
-      const verifyEqualityIx =
-        createVerifyCiphertextCiphertextEqualityInstruction(
-          equalityProofBytes,
-          equalityContextAccount.publicKey,
-          sender.publicKey,
-        );
-
-      const equalityTx = new Transaction().add(
-        createEqualityCtxIx,
-        verifyEqualityIx,
+      console.log(
+        '\n   Submitting equality proof (split into 2 transactions)...',
+      );
+      console.log(
+        `     Equality proof size: ${equalityProofBytes.length} bytes`,
       );
 
+      // Transaction 1: Create equality context account
+      const createEqualityCtxTx = new Transaction().add(createEqualityCtxIx);
       try {
         const sig = await sendTransaction(
           connection,
-          equalityTx,
+          createEqualityCtxTx,
           [payer, equalityContextAccount],
-          {
-            skipPreflight: true,
-          },
+          { skipPreflight: true },
         );
-        console.log(`   ✅ Equality proof stored: ${sig}`);
+        console.log(`     ✅ Equality context account created: ${sig}`);
       } catch (error: any) {
-        console.error(`   ❌ Failed to store equality proof: ${error.message}`);
+        console.error(
+          `   ❌ Failed to create equality context account: ${error.message}`,
+        );
         if (error.logs) {
           console.log('   Logs:', error.logs.slice(-10));
         }
         throw error;
       }
 
-      console.log('   Submitting validity proof...');
+      // Transaction 2: Verify equality proof (CiphertextCommitmentEquality)
+      const verifyEqualityIx =
+        createVerifyCiphertextCommitmentEqualityInstruction(
+          equalityProofBytes,
+          equalityContextAccount.publicKey,
+          sender.publicKey,
+        );
+
+      const verifyEqualityTx = new Transaction().add(verifyEqualityIx);
+      try {
+        const sig = await sendTransaction(
+          connection,
+          verifyEqualityTx,
+          [payer],
+          { skipPreflight: true },
+        );
+        console.log(`     ✅ Equality proof verified: ${sig}`);
+      } catch (error: any) {
+        console.error(
+          `   ❌ Failed to verify equality proof: ${error.message}`,
+        );
+        if (error.logs) {
+          console.log('   Logs:', error.logs.slice(-10));
+        }
+        throw error;
+      }
+
+      console.log(
+        '   Submitting validity proof (split into 2 transactions)...',
+      );
+      console.log(
+        `     Validity proof size: ${validityProofBytes.length} bytes`,
+      );
+
+      // Transaction 1: Create validity context account
+      const createValidityCtxTx = new Transaction().add(createValidityCtxIx);
+      try {
+        const sig = await sendTransaction(
+          connection,
+          createValidityCtxTx,
+          [payer, validityContextAccount],
+          { skipPreflight: true },
+        );
+        console.log(`     ✅ Validity context account created: ${sig}`);
+      } catch (error: any) {
+        console.error(
+          `   ❌ Failed to create validity context account: ${error.message}`,
+        );
+        if (error.logs) {
+          console.log('   Logs:', error.logs.slice(-10));
+        }
+        throw error;
+      }
+
+      // Transaction 2: Verify validity proof
       const verifyValidityIx =
         createVerifyBatchedGroupedCiphertext3HandlesValidityInstruction(
           validityProofBytes,
@@ -1759,23 +2209,19 @@ async function main() {
           sender.publicKey,
         );
 
-      const validityTx = new Transaction().add(
-        createValidityCtxIx,
-        verifyValidityIx,
-      );
-
+      const verifyValidityTx = new Transaction().add(verifyValidityIx);
       try {
         const sig = await sendTransaction(
           connection,
-          validityTx,
-          [payer, validityContextAccount],
-          {
-            skipPreflight: true,
-          },
+          verifyValidityTx,
+          [payer],
+          { skipPreflight: true },
         );
-        console.log(`   ✅ Validity proof stored: ${sig}`);
+        console.log(`     ✅ Validity proof verified: ${sig}`);
       } catch (error: any) {
-        console.error(`   ❌ Failed to store validity proof: ${error.message}`);
+        console.error(
+          `   ❌ Failed to verify validity proof: ${error.message}`,
+        );
         if (error.logs) {
           console.log('   Logs:', error.logs.slice(-10));
         }
@@ -1811,8 +2257,8 @@ async function main() {
         throw error;
       }
 
-      // Transaction 2: Verify the range proof (writes to existing account)
-      const verifyRangeIx = createVerifyBatchedRangeProofU64Instruction(
+      // Transaction 2: Verify the range proof U128 (writes to existing account)
+      const verifyRangeIx = createVerifyBatchedRangeProofU128Instruction(
         rangeProofBytes,
         rangeContextAccount.publicKey,
         sender.publicKey,
@@ -1876,9 +2322,7 @@ async function main() {
       // GroupedElGamalCiphertext3Handles layout: commitment (32 bytes) + handle1 (32) + handle2 (32) + handle3 (32)
       // ElGamalCiphertext = commitment (32) + handle (32) = 64 bytes
       // The auditor is the third handle (index 2)
-      const groupedLoBytes = groupedCiphertextLo.toBytes();
-      const groupedHiBytes = groupedCiphertextHi.toBytes();
-
+      // Note: groupedLoBytes and groupedHiBytes were already extracted earlier for the equality proof
       console.log(
         `   GroupedCiphertext Lo size: ${groupedLoBytes.length} bytes`,
       );
@@ -1953,7 +2397,7 @@ async function main() {
         recipientAeKey,
       );
     } catch (error: any) {
-      console.error(`   ❌ Step 7 failed: ${error.message}`);
+      console.error(`   ❌ Step 7 failed: ${error}`);
       throw Error('Confidential transfer failed');
     }
   }
@@ -2083,6 +2527,7 @@ async function testProofGeneration() {
     CiphertextCiphertextEqualityProofData,
     BatchedGroupedCiphertext2HandlesValidityProofData,
     BatchedRangeProofU64Data,
+    BatchedRangeProofU128Data,
     GroupedElGamalCiphertext2Handles,
     PedersenCommitment,
     PedersenOpening,
@@ -2103,6 +2548,9 @@ async function testProofGeneration() {
   );
   console.log(
     `   BatchedRangeProofU64Data: ${typeof BatchedRangeProofU64Data}`,
+  );
+  console.log(
+    `   BatchedRangeProofU128Data: ${typeof BatchedRangeProofU128Data}`,
   );
   console.log(
     `   GroupedElGamalCiphertext2Handles: ${typeof GroupedElGamalCiphertext2Handles}`,
