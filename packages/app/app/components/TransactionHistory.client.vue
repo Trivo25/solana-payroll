@@ -28,6 +28,7 @@
           <span v-if="tx.type === 'deposit'">&#x2B07;</span>
           <span v-else-if="tx.type === 'apply'">&#x2705;</span>
           <span v-else-if="tx.type === 'withdraw'">&#x2B06;</span>
+          <span v-else-if="tx.type === 'transfer'">&#x1F512;</span>
           <span v-else>&#x1F4B0;</span>
         </div>
         <div class="tx-details">
@@ -66,6 +67,7 @@ function formatType(type: CTTransaction['type']): string {
     case 'deposit': return 'Deposit to Pending';
     case 'apply': return 'Applied to Private';
     case 'withdraw': return 'Withdraw to Public';
+    case 'transfer': return 'Private Transfer';
     case 'mint': return 'Minted Tokens';
     default: return type;
   }
@@ -78,7 +80,7 @@ function formatAmount(type: CTTransaction['type'], amount: number): string {
   const formatted = amount.toFixed(2);
   if (type === 'deposit') {
     return `+${formatted}`;
-  } else if (type === 'withdraw') {
+  } else if (type === 'withdraw' || type === 'transfer') {
     return `-${formatted}`;
   }
   return formatted;
@@ -191,6 +193,10 @@ function formatTime(timestamp: number): string {
   border-left: 2px solid #6366f1;
 }
 
+.transaction-item.transfer {
+  border-left: 2px solid #10b981;
+}
+
 .tx-icon {
   width: 24px;
   height: 24px;
@@ -234,6 +240,10 @@ function formatTime(timestamp: number): string {
 
 .tx-amount.withdraw {
   color: #6366f1;
+}
+
+.tx-amount.transfer {
+  color: #10b981;
 }
 
 .tx-link {

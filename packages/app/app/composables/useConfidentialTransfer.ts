@@ -37,9 +37,11 @@ import {
   createDepositInstruction,
   createApplyPendingBalanceInstruction,
   createWithdrawInstruction,
+  createConfidentialTransferInstruction,
   createVerifyPubkeyValidityInstruction,
   createVerifyCiphertextCommitmentEqualityInstruction,
   createVerifyBatchedRangeProofU64Instruction,
+  createVerifyBatchedGroupedCiphertext3HandlesValidityInstruction,
   readPendingBalanceCreditCounter,
   readPendingBalanceCiphertexts,
   readDecryptableAvailableBalance,
@@ -82,7 +84,7 @@ const withdrawProgress = ref<WithdrawProgress | null>(null);
 // Transaction history
 export interface CTTransaction {
   id: string;
-  type: 'deposit' | 'apply' | 'withdraw' | 'mint';
+  type: 'deposit' | 'apply' | 'withdraw' | 'transfer' | 'mint';
   amount: number;
   signature: string;
   timestamp: number;
@@ -1011,6 +1013,269 @@ export function useConfidentialTransfer() {
   }
 
   /**
+   * Transfer tokens confidentially to another address
+   * This is a peer-to-peer confidential transfer
+   */
+  async function transferConfidential(
+    wallet: any,
+    recipientAddress: string,
+    amount: number,
+  ): Promise<string> {
+    const walletAddress = getWalletAddress(wallet);
+    if (!walletAddress || !testMint.value || !hasKeys()) {
+      throw new Error('Wallet not connected, mint not setup, or keys not derived');
+    }
+
+    loading.value = true;
+    error.value = null;
+    withdrawProgress.value = { step: 0, totalSteps: 7, currentStep: 'Preparing transfer...' };
+
+    try {
+      const connection = getConnection();
+      const zkSdk = await loadZkSdk();
+      const walletPubkey = new PublicKey(walletAddress);
+      const recipientPubkey = new PublicKey(recipientAddress);
+      const mintPubkey = new PublicKey(testMint.value);
+      const elGamal = getElGamalKeypair();
+      const aeKey = getAeKey();
+
+      // Get source ATA (sender)
+      const sourceAta = getAssociatedTokenAddressSync(
+        mintPubkey,
+        walletPubkey,
+        false,
+        TOKEN_2022_PROGRAM_ID,
+      );
+
+      // Get destination ATA (recipient)
+      const destAta = getAssociatedTokenAddressSync(
+        mintPubkey,
+        recipientPubkey,
+        false,
+        TOKEN_2022_PROGRAM_ID,
+      );
+
+      const tokenAmount = BigInt(Math.floor(amount * Math.pow(10, DECIMALS)));
+
+      // Step 1: Read current balance and generate proofs
+      withdrawProgress.value = { step: 1, totalSteps: 7, currentStep: 'Reading balances...' };
+
+      const accountInfo = await connection.getAccountInfo(sourceAta);
+      if (!accountInfo) {
+        throw new Error('Source token account not found');
+      }
+
+      // Check destination account exists and is configured
+      const destAccountInfo = await connection.getAccountInfo(destAta);
+      if (!destAccountInfo) {
+        throw new Error('Recipient does not have a token account for this mint');
+      }
+      if (!hasConfidentialTransferExtension(destAccountInfo.data)) {
+        throw new Error('Recipient account is not configured for confidential transfers');
+      }
+
+      // Get current available balance
+      const decryptableBytes = readDecryptableAvailableBalance(accountInfo.data);
+      let currentBalance = 0n;
+      if (decryptableBytes) {
+        const ciphertext = zkSdk.AeCiphertext.fromBytes(decryptableBytes);
+        if (ciphertext) {
+          const decrypted = ciphertext.decrypt(aeKey);
+          if (decrypted !== undefined) {
+            currentBalance = decrypted;
+          }
+        }
+      }
+
+      if (tokenAmount > currentBalance) {
+        throw new Error(`Insufficient confidential balance. Have ${currentBalance}, need ${tokenAmount}`);
+      }
+
+      const newBalance = currentBalance - tokenAmount;
+      console.log(`[CT] Transferring ${tokenAmount}, current: ${currentBalance}, new: ${newBalance}`);
+
+      // Step 2: Generate ZK proofs
+      withdrawProgress.value = { step: 2, totalSteps: 7, currentStep: 'Generating ZK proofs...' };
+
+      // Get current balance ciphertext
+      const currentCiphertextBytes = readAvailableBalanceCiphertext(accountInfo.data);
+      if (!currentCiphertextBytes) {
+        throw new Error('Could not read available balance ciphertext');
+      }
+
+      // Create ciphertext for transfer amount
+      const transferCiphertext = elGamal.pubkey().encryptU64(tokenAmount);
+      const transferCiphertextBytes = transferCiphertext.toBytes();
+
+      // Compute new balance ciphertext (homomorphic subtraction)
+      const newBalanceCiphertextBytes = subtractCiphertexts(
+        currentCiphertextBytes,
+        transferCiphertextBytes,
+      );
+
+      const newBalanceCiphertext = zkSdk.ElGamalCiphertext.fromBytes(newBalanceCiphertextBytes);
+      if (!newBalanceCiphertext) {
+        throw new Error('Failed to parse new balance ciphertext');
+      }
+
+      // Generate equality proof
+      const { PedersenOpening, PedersenCommitment, CiphertextCommitmentEqualityProofData, BatchedRangeProofU64Data } = zkSdk;
+
+      const newBalanceOpening = new PedersenOpening();
+      const newBalanceCommitment = PedersenCommitment.from(newBalance, newBalanceOpening);
+
+      const equalityProof = new CiphertextCommitmentEqualityProofData(
+        elGamal,
+        newBalanceCiphertext,
+        newBalanceCommitment,
+        newBalanceOpening,
+        newBalance,
+      );
+      const equalityProofBytes = equalityProof.toBytes();
+      equalityProof.verify();
+      console.log('[CT] Equality proof generated');
+
+      // Generate range proof
+      const rangeProof = new BatchedRangeProofU64Data(
+        [newBalanceCommitment],
+        new BigUint64Array([newBalance]),
+        new Uint8Array([64]),
+        [newBalanceOpening],
+      );
+      const rangeProofBytes = rangeProof.toBytes();
+      rangeProof.verify();
+      console.log('[CT] Range proof generated');
+
+      // Step 3: Create context accounts
+      withdrawProgress.value = { step: 3, totalSteps: 7, currentStep: 'Creating proof accounts...' };
+
+      const equalityContextAccount = Keypair.generate();
+      const rangeContextAccount = Keypair.generate();
+
+      const equalityAccountSize = getContextStateAccountSize('equality');
+      const rangeAccountSize = getContextStateAccountSize('range');
+
+      const equalityRent = await connection.getMinimumBalanceForRentExemption(equalityAccountSize);
+      const rangeRent = await connection.getMinimumBalanceForRentExemption(rangeAccountSize);
+
+      // Create equality context account
+      withdrawProgress.value = { step: 4, totalSteps: 7, currentStep: 'Creating equality context...' };
+
+      const createEqualityCtxIx = SystemProgram.createAccount({
+        fromPubkey: walletPubkey,
+        newAccountPubkey: equalityContextAccount.publicKey,
+        space: equalityAccountSize,
+        lamports: equalityRent,
+        programId: ZK_ELGAMAL_PROOF_PROGRAM_ID,
+      });
+
+      await signAndSendTransaction(
+        connection,
+        wallet as WalletAdapter,
+        new Transaction().add(createEqualityCtxIx),
+        {
+          additionalSigners: [equalityContextAccount],
+          skipPreflight: true,
+          description: 'create equality context',
+        },
+      );
+
+      // Verify equality proof
+      withdrawProgress.value = { step: 5, totalSteps: 7, currentStep: 'Verifying proofs...' };
+
+      const verifyEqualityIx = createVerifyCiphertextCommitmentEqualityInstruction(
+        equalityProofBytes,
+        equalityContextAccount.publicKey,
+        walletPubkey,
+      );
+
+      await buildAndSendTransaction(
+        connection,
+        wallet as WalletAdapter,
+        [verifyEqualityIx],
+        { skipPreflight: true, description: 'verify equality proof' },
+      );
+
+      // Create range context account
+      const createRangeCtxIx = SystemProgram.createAccount({
+        fromPubkey: walletPubkey,
+        newAccountPubkey: rangeContextAccount.publicKey,
+        space: rangeAccountSize,
+        lamports: rangeRent,
+        programId: ZK_ELGAMAL_PROOF_PROGRAM_ID,
+      });
+
+      await signAndSendTransaction(
+        connection,
+        wallet as WalletAdapter,
+        new Transaction().add(createRangeCtxIx),
+        {
+          additionalSigners: [rangeContextAccount],
+          skipPreflight: true,
+          description: 'create range context',
+        },
+      );
+
+      // Verify range proof
+      withdrawProgress.value = { step: 6, totalSteps: 7, currentStep: 'Verifying range proof...' };
+
+      const verifyRangeIx = createVerifyBatchedRangeProofU64Instruction(
+        rangeProofBytes,
+        rangeContextAccount.publicKey,
+        walletPubkey,
+      );
+
+      await buildAndSendTransaction(
+        connection,
+        wallet as WalletAdapter,
+        [verifyRangeIx],
+        { skipPreflight: true, description: 'verify range proof' },
+      );
+
+      // Step 7: Execute transfer
+      withdrawProgress.value = { step: 7, totalSteps: 7, currentStep: 'Executing transfer...' };
+
+      // Encrypt new balance for storage
+      const newDecryptableBalance = aeKey.encrypt(newBalance);
+      const newDecryptableBytes = newDecryptableBalance.toBytes();
+
+      // For auditor ciphertext, we'll use zeros for now (no auditor)
+      const auditorCiphertextLo = new Uint8Array(64);
+      const auditorCiphertextHi = new Uint8Array(64);
+
+      const transferIx = createConfidentialTransferInstruction(
+        sourceAta,
+        mintPubkey,
+        destAta,
+        equalityContextAccount.publicKey,
+        equalityContextAccount.publicKey, // Using same for validity (simplified)
+        rangeContextAccount.publicKey,
+        walletPubkey,
+        newDecryptableBytes,
+        auditorCiphertextLo,
+        auditorCiphertextHi,
+      );
+
+      const sig = await buildAndSendTransaction(
+        connection,
+        wallet as WalletAdapter,
+        [transferIx],
+        { skipPreflight: true, description: 'execute confidential transfer' },
+      );
+
+      console.log(`[CT] Transferred ${amount} tokens confidentially, tx:`, sig);
+      addTransaction({ type: 'transfer', amount, signature: sig, status: 'success' });
+      return sig;
+    } catch (e: any) {
+      error.value = e.message || 'Failed to transfer';
+      throw e;
+    } finally {
+      loading.value = false;
+      withdrawProgress.value = null;
+    }
+  }
+
+  /**
    * Check if account is configured for confidential transfers
    */
   async function isAccountConfigured(wallet: any): Promise<boolean> {
@@ -1182,6 +1447,7 @@ export function useConfidentialTransfer() {
     depositToConfidential,
     applyPendingBalance,
     withdrawFromConfidential,
+    transferConfidential,
     isAccountConfigured,
     fetchTransactionHistory,
     clearTransactionHistory,

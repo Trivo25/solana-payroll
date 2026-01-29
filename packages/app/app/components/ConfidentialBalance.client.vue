@@ -97,6 +97,14 @@
             >
               ← Withdraw
             </button>
+            <button
+              class="btn btn-small btn-transfer"
+              :disabled="loading || usdcConfidentialBalance <= 0 || !isUsdcAccountConfigured"
+              :title="!isUsdcAccountConfigured ? 'Configure account first' : 'Send privately to another wallet'"
+              @click="openTransferModal"
+            >
+              Transfer
+            </button>
           </div>
         </div>
       </div>
@@ -238,6 +246,66 @@
         </div>
       </div>
     </div>
+
+    <!-- transfer modal -->
+    <div
+      v-if="showTransferModal"
+      class="modal-overlay"
+      @click.self="closeTransferModal"
+    >
+      <div class="modal">
+        <h3>Transfer Privately</h3>
+        <p class="modal-desc">
+          Send cUSDC privately to another wallet. The amount will be encrypted and only visible to sender and recipient.
+        </p>
+
+        <div class="modal-token-info">
+          <span class="token-icon usdc">$</span>
+          <span class="token-label">cUSDC</span>
+          <span class="available-balance mono">
+            Available: {{ formatBalance(usdcConfidentialBalance, 2) }}
+          </span>
+        </div>
+
+        <div class="input-group">
+          <label>Recipient Address</label>
+          <input
+            v-model="transferRecipient"
+            type="text"
+            placeholder="Enter Solana wallet address"
+            class="recipient-input"
+          />
+        </div>
+
+        <div class="input-group">
+          <label>Amount</label>
+          <input
+            v-model.number="transferAmount"
+            type="number"
+            :max="usdcConfidentialBalance"
+            min="0"
+            step="0.01"
+            placeholder="0.00"
+          />
+          <button class="max-btn" @click="transferAmount = usdcConfidentialBalance">
+            MAX
+          </button>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-secondary" @click="closeTransferModal" :disabled="loading">
+            Cancel
+          </button>
+          <button
+            class="btn btn-primary btn-transfer-confirm"
+            :disabled="loading || transferAmount <= 0 || transferAmount > usdcConfidentialBalance || !transferRecipient"
+            @click="handleTransfer"
+          >
+            {{ loading ? 'Transferring...' : 'Transfer Privately' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -267,6 +335,7 @@ const {
   depositToConfidential,
   applyPendingBalance,
   withdrawFromConfidential,
+  transferConfidential,
   isAccountConfigured,
   fetchTransactionHistory,
 } = useConfidentialTransfer();
@@ -285,9 +354,12 @@ const isUsdcAccountConfigured = ref(false);
 // Modal state
 const showDepositModal = ref(false);
 const showWithdrawModal = ref(false);
+const showTransferModal = ref(false);
 const selectedToken = ref<TokenType>('USDC');
 const depositAmount = ref(0);
 const withdrawAmount = ref(0);
+const transferAmount = ref(0);
+const transferRecipient = ref('');
 
 const isDev = ref(true); // always true for local dev
 const derivingKey = ref(false);
@@ -321,6 +393,20 @@ function closeDepositModal() {
 function closeWithdrawModal() {
   showWithdrawModal.value = false;
   withdrawAmount.value = 0;
+}
+
+// open transfer modal
+function openTransferModal() {
+  transferAmount.value = 0;
+  transferRecipient.value = '';
+  showTransferModal.value = true;
+}
+
+// close transfer modal
+function closeTransferModal() {
+  showTransferModal.value = false;
+  transferAmount.value = 0;
+  transferRecipient.value = '';
 }
 
 // check if already setup
@@ -493,6 +579,28 @@ async function handleWithdraw() {
     }
   } catch (e) {
     console.error(`${selectedToken.value} withdraw failed:`, e);
+  }
+}
+
+// transfer confidential balance to another wallet
+async function handleTransfer() {
+  if (!props.wallet?.publicKey || transferAmount.value <= 0 || !transferRecipient.value) return;
+
+  try {
+    console.log(`Transferring ${transferAmount.value} cUSDC privately to ${transferRecipient.value}...`);
+
+    const txid = await transferConfidential(
+      props.wallet,
+      transferRecipient.value,
+      transferAmount.value,
+    );
+    if (txid) {
+      console.log('confidential transfer successful:', txid);
+      closeTransferModal();
+      await refreshBalances();
+    }
+  } catch (e) {
+    console.error('confidential transfer failed:', e);
   }
 }
 
@@ -1068,5 +1176,30 @@ onMounted(() => {
   font-size: 0.625rem;
   color: var(--text-secondary);
   text-align: center;
+}
+
+/* transfer button */
+.btn-transfer {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
+  color: #10b981;
+  border: none;
+}
+
+.btn-transfer:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(99, 102, 241, 0.25) 100%);
+}
+
+.btn-transfer-confirm {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.btn-transfer-confirm:hover:not(:disabled) {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+/* recipient input */
+.recipient-input {
+  padding-right: 0.75rem !important;
+  font-size: 0.875rem !important;
 }
 </style>
