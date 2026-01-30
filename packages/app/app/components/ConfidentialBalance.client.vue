@@ -884,23 +884,23 @@ onUnmounted(() => {
   background: rgba(16, 185, 129, 0.1);
 }
 
-.btn-tiny {
-  padding: 0.125rem 0.3rem;
-  font-size: 0.5rem;
-  border-radius: 3px;
+.btn.btn-tiny {
+  padding: 0.1rem 0.3rem !important;
+  font-size: 0.5rem !important;
+  border-radius: 3px !important;
   flex-shrink: 0;
   line-height: 1;
-}
-
-.btn-apply {
-  background: rgba(245, 158, 11, 0.15);
-  color: #d97706;
-  border: none;
   font-weight: 500;
 }
 
-.btn-apply:hover:not(:disabled) {
-  background: rgba(245, 158, 11, 0.3);
+.btn.btn-apply {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  border: none;
+}
+
+.btn.btn-apply:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.25);
 }
 
 .balance-type {
