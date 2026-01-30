@@ -9,6 +9,7 @@
 
 import { ref, type Ref } from 'vue';
 import { Connection, PublicKey, Transaction, Keypair, SystemProgram } from '@solana/web3.js';
+import { sha256 } from '@noble/hashes/sha256';
 import {
   TOKEN_2022_PROGRAM_ID,
   ExtensionType,
@@ -101,6 +102,18 @@ function clearTransactionHistory(): void {
 // Token mint address (stored in localStorage for persistence)
 const MINT_STORAGE_KEY = 'veil-ct-mint';
 
+// Deterministic mint seed - generates the same mint address across all browsers
+const MINT_SEED = 'veil-confidential-usdc-mint-v1';
+
+/**
+ * Generate a deterministic keypair from a seed string
+ * This ensures the same mint address across all browsers/sessions
+ */
+function getMintKeypair(): Keypair {
+  const seed = sha256(new TextEncoder().encode(MINT_SEED));
+  return Keypair.fromSeed(seed);
+}
+
 // Auditor keypair (generated once per mint)
 let auditorKeypair: InstanceType<ZkSdkModule['ElGamalKeypair']> | null = null;
 
@@ -169,19 +182,23 @@ export function useConfidentialTransfer() {
     error.value = null;
 
     try {
-      // Check if mint already exists
-      const storedMint = localStorage.getItem(MINT_STORAGE_KEY);
-      if (storedMint) {
-        testMint.value = storedMint;
-        console.log('[CT] Using existing test mint:', storedMint);
-        return storedMint;
+      const connection = getConnection();
+
+      // Use deterministic mint keypair - same address across all browsers
+      const mint = getMintKeypair();
+      const mintAddress = mint.publicKey.toBase58();
+
+      // Check if mint already exists on-chain (may have been created by another browser)
+      const mintInfo = await connection.getAccountInfo(mint.publicKey);
+      if (mintInfo) {
+        testMint.value = mintAddress;
+        localStorage.setItem(MINT_STORAGE_KEY, mintAddress);
+        console.log('[CT] Using existing deterministic mint:', mintAddress);
+        return mintAddress;
       }
 
-      const connection = getConnection();
+      console.log('[CT] Creating new deterministic mint:', mintAddress);
       const zkSdk = await loadZkSdk();
-
-      // Generate new mint keypair
-      const mint = Keypair.generate();
       const mintLen = getMintLen([ExtensionType.ConfidentialTransferMint]);
       const mintRent = await connection.getMinimumBalanceForRentExemption(mintLen);
 
@@ -226,7 +243,6 @@ export function useConfidentialTransfer() {
         description: 'create confidential mint',
       });
 
-      const mintAddress = mint.publicKey.toBase58();
       localStorage.setItem(MINT_STORAGE_KEY, mintAddress);
       testMint.value = mintAddress;
 
@@ -415,6 +431,22 @@ export function useConfidentialTransfer() {
         TOKEN_2022_PROGRAM_ID,
       );
 
+      // Check if ATA exists, create if needed
+      const ataInfo = await connection.getAccountInfo(ata);
+      const instructions = [];
+
+      if (!ataInfo) {
+        console.log('[CT] ATA does not exist, creating...');
+        const createAtaIx = createAssociatedTokenAccountInstruction(
+          walletPubkey,
+          ata,
+          walletPubkey,
+          mintPubkey,
+          TOKEN_2022_PROGRAM_ID,
+        );
+        instructions.push(createAtaIx);
+      }
+
       // Convert to token amount (with decimals)
       const tokenAmount = BigInt(Math.floor(amount * Math.pow(10, DECIMALS)));
 
@@ -426,11 +458,12 @@ export function useConfidentialTransfer() {
         [],
         TOKEN_2022_PROGRAM_ID,
       );
+      instructions.push(mintToIx);
 
       const sig = await buildAndSendTransaction(
         connection,
         wallet as WalletAdapter,
-        [mintToIx],
+        instructions,
         { description: 'mint test tokens' },
       );
 
