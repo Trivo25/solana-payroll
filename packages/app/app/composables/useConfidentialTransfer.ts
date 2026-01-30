@@ -81,7 +81,7 @@ export interface WithdrawProgress {
 }
 const withdrawProgress = ref<WithdrawProgress | null>(null);
 
-// Transaction history
+// Transaction history (fetched from RPC, not stored locally)
 export interface CTTransaction {
   id: string;
   type: 'deposit' | 'apply' | 'withdraw' | 'transfer' | 'mint';
@@ -91,50 +91,11 @@ export interface CTTransaction {
   status: 'success' | 'failed';
 }
 const transactions = ref<CTTransaction[]>([]);
-const TX_STORAGE_KEY = 'veil-ct-transactions';
 
-// Load transactions from localStorage
-function loadTransactions(): void {
-  try {
-    const stored = localStorage.getItem(TX_STORAGE_KEY);
-    if (stored) {
-      transactions.value = JSON.parse(stored);
-    }
-  } catch (e) {
-    console.error('[CT] Failed to load transactions:', e);
-  }
-}
-
-// Save transactions to localStorage
-function saveTransactions(): void {
-  try {
-    localStorage.setItem(TX_STORAGE_KEY, JSON.stringify(transactions.value));
-  } catch (e) {
-    console.error('[CT] Failed to save transactions:', e);
-  }
-}
-
-// Add a transaction to history
-function addTransaction(tx: Omit<CTTransaction, 'id' | 'timestamp'>): void {
-  const newTx: CTTransaction = {
-    ...tx,
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-    timestamp: Date.now(),
-  };
-  transactions.value = [newTx, ...transactions.value].slice(0, 50); // Keep last 50
-  saveTransactions();
-}
-
-// Clear transaction history
+// Clear transaction history (just clears the in-memory list)
 function clearTransactionHistory(): void {
   transactions.value = [];
-  localStorage.removeItem(TX_STORAGE_KEY);
   console.log('[CT] Transaction history cleared');
-}
-
-// Initialize transactions on module load
-if (typeof window !== 'undefined') {
-  loadTransactions();
 }
 
 // Token mint address (stored in localStorage for persistence)
@@ -664,7 +625,6 @@ export function useConfidentialTransfer() {
       );
 
       console.log(`[CT] Deposited ${amount} tokens to pending, tx:`, sig);
-      addTransaction({ type: 'deposit', amount, signature: sig, status: 'success' });
       return sig;
     } catch (e: any) {
       error.value = e.message || 'Failed to deposit';
@@ -766,8 +726,6 @@ export function useConfidentialTransfer() {
       );
 
       console.log('[CT] Applied pending balance, tx:', sig);
-      const appliedAmount = Number(pendingAmount) / Math.pow(10, DECIMALS);
-      addTransaction({ type: 'apply', amount: appliedAmount, signature: sig, status: 'success' });
       return sig;
     } catch (e: any) {
       error.value = e.message || 'Failed to apply pending balance';
@@ -1001,7 +959,6 @@ export function useConfidentialTransfer() {
       );
 
       console.log(`[CT] Withdrew ${amount} tokens from confidential, tx:`, sig);
-      addTransaction({ type: 'withdraw', amount, signature: sig, status: 'success' });
       return sig;
     } catch (e: any) {
       error.value = e.message || 'Failed to withdraw';
@@ -1264,7 +1221,6 @@ export function useConfidentialTransfer() {
       );
 
       console.log(`[CT] Transferred ${amount} tokens confidentially, tx:`, sig);
-      addTransaction({ type: 'transfer', amount, signature: sig, status: 'success' });
       return sig;
     } catch (e: any) {
       error.value = e.message || 'Failed to transfer';
@@ -1306,6 +1262,7 @@ export function useConfidentialTransfer() {
   /**
    * Fetch transaction history from the blockchain
    * Detects CT operations by analyzing token balance changes
+   * Always fetches fresh from RPC - no local storage
    */
   async function fetchTransactionHistory(wallet: any): Promise<void> {
     const walletAddress = getWalletAddress(wallet);
@@ -1325,16 +1282,17 @@ export function useConfidentialTransfer() {
 
       // Get recent transaction signatures for the token account
       const signatures = await connection.getSignaturesForAddress(ata, { limit: 30 });
-      console.log(`[CT] Found ${signatures.length} transactions for token account`);
 
-      // Get existing transaction signatures to avoid duplicates
-      const existingSignatures = new Set(transactions.value.map(tx => tx.signature));
+      // Build fresh transaction list from RPC
+      const freshTransactions: CTTransaction[] = [];
+      const seenSignatures = new Set<string>();
 
       // Fetch and parse each transaction
       for (const sigInfo of signatures) {
-        // Skip if we already have this transaction or if it failed
-        if (existingSignatures.has(sigInfo.signature)) continue;
+        // Skip failed transactions or duplicates
         if (sigInfo.err) continue;
+        if (seenSignatures.has(sigInfo.signature)) continue;
+        seenSignatures.add(sigInfo.signature);
 
         try {
           const tx = await connection.getTransaction(sigInfo.signature, {
@@ -1370,7 +1328,6 @@ export function useConfidentialTransfer() {
 
           // Skip mint transactions - they have "MintTo" in logs
           if (logStr.includes('mintto') || logStr.includes('mint_to')) {
-            console.log('[CT] Skipping mint transaction:', sigInfo.signature.slice(0, 16));
             continue;
           }
 
@@ -1387,40 +1344,36 @@ export function useConfidentialTransfer() {
                      (logStr.includes('withdraw') && logStr.includes('confidential'))) {
             txType = 'withdraw';
             amount = postPubAmount - prePubAmount; // Public increases on withdraw
+          } else if (logStr.includes('confidentialtransfer') && !logStr.includes('mint')) {
+            // Generic confidential transfer (could be peer-to-peer)
+            txType = 'transfer';
+            amount = 0; // Amount is encrypted
           } else if (prePubAmount > postPubAmount && Math.abs(prePubAmount - postPubAmount) > 0.0001) {
             // Public balance decreased without mint - likely a deposit
             txType = 'deposit';
             amount = prePubAmount - postPubAmount;
           }
-          // Note: We no longer assume public increase = withdraw (could be mint)
 
-          if (txType && (amount > 0 || txType === 'apply')) {
-            const newTx: CTTransaction = {
+          if (txType && (amount > 0 || txType === 'apply' || txType === 'transfer')) {
+            freshTransactions.push({
               id: sigInfo.signature.slice(0, 16),
               type: txType,
               amount: Math.abs(amount),
               signature: sigInfo.signature,
               timestamp: sigInfo.blockTime ? sigInfo.blockTime * 1000 : Date.now(),
               status: 'success',
-            };
-
-            // Add to beginning and dedupe
-            if (!existingSignatures.has(sigInfo.signature)) {
-              transactions.value.push(newTx);
-              existingSignatures.add(sigInfo.signature);
-            }
+            });
           }
         } catch (txError) {
-          console.warn('[CT] Failed to parse transaction:', sigInfo.signature, txError);
+          console.debug('[CT] Failed to parse transaction:', sigInfo.signature.slice(0, 8));
         }
       }
 
-      // Sort by timestamp (newest first) and limit
-      transactions.value.sort((a, b) => b.timestamp - a.timestamp);
-      transactions.value = transactions.value.slice(0, 50);
-      saveTransactions();
+      // Sort by timestamp (newest first) and update the ref
+      freshTransactions.sort((a, b) => b.timestamp - a.timestamp);
+      transactions.value = freshTransactions.slice(0, 50);
 
-      console.log(`[CT] Transaction history updated: ${transactions.value.length} total`);
+      console.log(`[CT] Fetched ${transactions.value.length} transactions from RPC`);
     } catch (e) {
       console.error('[CT] Failed to fetch transaction history:', e);
     }

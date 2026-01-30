@@ -67,8 +67,17 @@
                   <div class="welcome-header-row">
                     <h1>Welcome, {{ account.name }}</h1>
                     <!-- compact qr code -->
-                    <div v-if="connected" class="qr-compact" @click="showQRModal = true">
-                      <img v-if="qrCodeUrl" :src="qrCodeUrl" alt="Your QR Code" class="qr-mini" />
+                    <div
+                      v-if="connected"
+                      class="qr-compact"
+                      @click="showQRModal = true"
+                    >
+                      <img
+                        v-if="qrCodeUrl"
+                        :src="qrCodeUrl"
+                        alt="Your QR Code"
+                        class="qr-mini"
+                      />
                       <div v-else class="qr-mini-loading"></div>
                       <div class="qr-shine"></div>
                     </div>
@@ -93,9 +102,15 @@
         </div>
 
         <!-- qr modal -->
-        <div v-if="showQRModal" class="qr-modal-overlay" @click.self="showQRModal = false">
+        <div
+          v-if="showQRModal"
+          class="qr-modal-overlay"
+          @click.self="showQRModal = false"
+        >
           <div class="qr-modal">
-            <button class="qr-modal-close" @click="showQRModal = false">&times;</button>
+            <button class="qr-modal-close" @click="showQRModal = false">
+              &times;
+            </button>
             <QRConnect
               :wallet-address="publicKey?.toBase58() || ''"
               @connect="handleQRConnect"
@@ -198,7 +213,6 @@
           </div>
         </ClientOnly>
 
-
         <!-- invoice modal -->
         <InvoiceModal
           v-if="selectedInvoice"
@@ -214,7 +228,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useSupabase, type UserAccount } from '~/composables/useSupabase';
 import { useInvoices, type Invoice } from '~/composables/useInvoices';
 
@@ -365,20 +379,39 @@ async function handleFileChange(event: Event) {
 }
 
 // fetch sol balance for a public key
-async function fetchBalance(pubkey: any) {
+async function fetchBalance(pubkey: any, silent = false) {
   if (!pubkey) return;
-  balanceLoading.value = true;
+  if (!silent) balanceLoading.value = true;
   try {
-    const { Connection, clusterApiUrl, LAMPORTS_PER_SOL } =
-      await import('@solana/web3.js');
+    const { Connection, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
     const connection = new Connection(RPC_URL);
     const lamports = await connection.getBalance(pubkey);
     balance.value = lamports / LAMPORTS_PER_SOL;
   } catch (e) {
-    console.error('failed to fetch balance:', e);
-    balance.value = null;
+    if (!silent) console.error('failed to fetch balance:', e);
+    if (!silent) balance.value = null;
   } finally {
-    balanceLoading.value = false;
+    if (!silent) balanceLoading.value = false;
+  }
+}
+
+// Background polling for balances
+const BALANCE_POLL_INTERVAL = 10000;
+let balancePollId: ReturnType<typeof setInterval> | null = null;
+
+function startBalancePolling() {
+  if (balancePollId) return;
+  balancePollId = setInterval(async () => {
+    if (publicKey.value) {
+      await fetchBalance(publicKey.value, true);
+    }
+  }, BALANCE_POLL_INTERVAL);
+}
+
+function stopBalancePolling() {
+  if (balancePollId) {
+    clearInterval(balancePollId);
+    balancePollId = null;
   }
 }
 
@@ -535,6 +568,7 @@ onMounted(async () => {
       fetchConfidentialBalance(wallet.publicKey.value);
       checkAccount(address);
       generateMiniQRCode();
+      startBalancePolling();
     }
 
     watch(
@@ -554,6 +588,9 @@ onMounted(async () => {
           fetchConfidentialBalance(val);
           checkAccount(address);
           generateMiniQRCode();
+          startBalancePolling();
+        } else {
+          stopBalancePolling();
         }
       },
     );
@@ -570,6 +607,10 @@ onMounted(async () => {
     console.error('failed to initialize wallet:', e);
     navigateTo('/connect');
   }
+});
+
+onUnmounted(() => {
+  stopBalancePolling();
 });
 
 function disconnect() {
@@ -742,14 +783,18 @@ function shortenAddress(address: string): string {
   border-radius: 10px;
   padding: 4px;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15), 0 0 0 1px rgba(99, 102, 241, 0.1);
+  box-shadow:
+    0 2px 8px rgba(99, 102, 241, 0.15),
+    0 0 0 1px rgba(99, 102, 241, 0.1);
   transition: all 0.2s ease;
   overflow: hidden;
 }
 
 .qr-compact:hover {
   transform: scale(1.1);
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.25), 0 0 0 2px rgba(99, 102, 241, 0.2);
+  box-shadow:
+    0 4px 16px rgba(99, 102, 241, 0.25),
+    0 0 0 2px rgba(99, 102, 241, 0.2);
 }
 
 .qr-compact:active {
@@ -772,15 +817,25 @@ function shortenAddress(address: string): string {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 /* shine effect on hover */
 .qr-shine {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.4) 50%, transparent 60%);
+  background: linear-gradient(
+    135deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 60%
+  );
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -835,14 +890,15 @@ function shortenAddress(address: string): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
 .qr-modal-close:hover {
   transform: scale(1.1);
   box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
 }
-
 
 /* profile picture */
 .profile-picture-wrapper {

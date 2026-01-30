@@ -36,78 +36,110 @@
         </div>
 
         <div class="token-groups">
-        <!-- cUSDC balances -->
-        <div class="token-group">
-          <div class="token-header">
-            <span class="token-icon usdc">$</span>
-            <span class="token-name">cUSDC</span>
-          </div>
-          <div class="token-balances">
-            <div class="balance-row">
-              <span class="balance-type">Public</span>
-              <span class="balance-value mono">{{ formatBalance(usdcPublicBalance, 2) }}</span>
+          <!-- cUSDC balances -->
+          <div class="token-group">
+            <div class="token-header">
+              <span class="token-icon usdc">$</span>
+              <span class="token-name">cUSDC</span>
             </div>
-            <div class="balance-row pending">
-              <span class="balance-type">
-                Pending
-                <span class="info-icon" data-tooltip="Pending balance needs to be applied before it can be used">!</span>
-              </span>
-              <template v-if="elGamalPublicKey">
-                <span class="balance-value mono">{{ formatBalance(usdcPendingBalance, 2) }}</span>
-                <button
-                  v-if="usdcPendingBalance > 0"
-                  class="btn btn-tiny btn-apply"
-                  :disabled="loading"
-                  @click="handleApplyPending('USDC')"
-                >
-                  Apply
-                </button>
-              </template>
-              <span v-else class="balance-value locked">
-                <span class="lock-icon">&#x1F512;</span>
-              </span>
+            <div class="token-balances">
+              <div class="balance-row">
+                <span class="balance-type">Public</span>
+                <span class="balance-value mono">{{
+                  formatBalance(usdcPublicBalance, 2)
+                }}</span>
+              </div>
+              <div class="balance-row pending">
+                <span class="balance-type">
+                  Pending
+                  <span
+                    class="info-icon"
+                    data-tooltip="Pending balance needs to be applied before it can be used"
+                    >!</span
+                  >
+                </span>
+                <template v-if="elGamalPublicKey">
+                  <span class="balance-value mono">{{
+                    formatBalance(usdcPendingBalance, 2)
+                  }}</span>
+                  <button
+                    v-if="usdcPendingBalance > 0"
+                    class="btn btn-tiny btn-apply"
+                    :disabled="loading"
+                    @click="handleApplyPending('USDC')"
+                  >
+                    Apply
+                  </button>
+                </template>
+                <span v-else class="balance-value locked">
+                  <span class="lock-icon">&#x1F512;</span>
+                </span>
+              </div>
+              <div class="balance-row confidential">
+                <span class="balance-type">
+                  Private
+                  <span
+                    class="info-icon"
+                    data-tooltip="Private balances are only visible to you by default"
+                    >!</span
+                  >
+                </span>
+                <template v-if="elGamalPublicKey">
+                  <span class="balance-value mono blur-hover">{{
+                    formatBalance(usdcConfidentialBalance, 2)
+                  }}</span>
+                </template>
+                <span v-else class="balance-value locked">
+                  <span class="lock-icon">&#x1F512;</span>
+                </span>
+              </div>
             </div>
-            <div class="balance-row confidential">
-              <span class="balance-type">
-                Private
-                <span class="info-icon" data-tooltip="Private balances are only visible to you by default">!</span>
-              </span>
-              <template v-if="elGamalPublicKey">
-                <span class="balance-value mono blur-hover">{{ formatBalance(usdcConfidentialBalance, 2) }}</span>
-              </template>
-              <span v-else class="balance-value locked">
-                <span class="lock-icon">&#x1F512;</span>
-              </span>
+            <div class="token-actions">
+              <button
+                class="btn btn-small"
+                :disabled="
+                  loading || usdcPublicBalance <= 0 || !isUsdcAccountConfigured
+                "
+                :title="
+                  !isUsdcAccountConfigured ? 'Configure account first' : ''
+                "
+                @click="openDepositModal('USDC')"
+              >
+                Deposit →
+              </button>
+              <button
+                class="btn btn-small btn-secondary"
+                :disabled="
+                  loading ||
+                  usdcConfidentialBalance <= 0 ||
+                  !isUsdcAccountConfigured
+                "
+                :title="
+                  !isUsdcAccountConfigured ? 'Configure account first' : ''
+                "
+                @click="openWithdrawModal('USDC')"
+              >
+                ← Withdraw
+              </button>
+              <button
+                class="btn btn-small btn-transfer"
+                :disabled="
+                  loading ||
+                  usdcConfidentialBalance <= 0 ||
+                  !isUsdcAccountConfigured
+                "
+                :title="
+                  !isUsdcAccountConfigured
+                    ? 'Configure account first'
+                    : 'Send privately to another wallet'
+                "
+                @click="openTransferModal"
+              >
+                Transfer
+              </button>
             </div>
-          </div>
-          <div class="token-actions">
-            <button
-              class="btn btn-small"
-              :disabled="loading || usdcPublicBalance <= 0 || !isUsdcAccountConfigured"
-              :title="!isUsdcAccountConfigured ? 'Configure account first' : ''"
-              @click="openDepositModal('USDC')"
-            >
-              Deposit →
-            </button>
-            <button
-              class="btn btn-small btn-secondary"
-              :disabled="loading || usdcConfidentialBalance <= 0 || !isUsdcAccountConfigured"
-              :title="!isUsdcAccountConfigured ? 'Configure account first' : ''"
-              @click="openWithdrawModal('USDC')"
-            >
-              ← Withdraw
-            </button>
-            <button
-              class="btn btn-small btn-transfer"
-              :disabled="loading || usdcConfidentialBalance <= 0 || !isUsdcAccountConfigured"
-              :title="!isUsdcAccountConfigured ? 'Configure account first' : 'Send privately to another wallet'"
-              @click="openTransferModal"
-            >
-              Transfer
-            </button>
           </div>
         </div>
-      </div>
       </div>
 
       <!-- mint test tokens (dev only) -->
@@ -139,8 +171,8 @@
       <div class="modal">
         <h3>Deposit to c{{ selectedToken }}</h3>
         <p class="modal-desc">
-          Move USDC from public to private balance. Once deposited, your
-          balance will be encrypted.
+          Move USDC from public to private balance. Once deposited, your balance
+          will be encrypted.
         </p>
 
         <div class="modal-token-info">
@@ -172,7 +204,9 @@
           </button>
           <button
             class="btn btn-primary"
-            :disabled="loading || depositAmount <= 0 || depositAmount > usdcPublicBalance"
+            :disabled="
+              loading || depositAmount <= 0 || depositAmount > usdcPublicBalance
+            "
             @click="handleDeposit"
           >
             {{ loading ? 'Depositing...' : 'Deposit' }}
@@ -212,7 +246,10 @@
             step="0.01"
             placeholder="0.00"
           />
-          <button class="max-btn" @click="withdrawAmount = usdcConfidentialBalance">
+          <button
+            class="max-btn"
+            @click="withdrawAmount = usdcConfidentialBalance"
+          >
             MAX
           </button>
         </div>
@@ -221,27 +258,47 @@
         <div v-if="withdrawProgress" class="withdraw-progress">
           <div class="progress-header">
             <span class="progress-title">Processing Withdrawal</span>
-            <span class="progress-step">Step {{ withdrawProgress.step }}/{{ withdrawProgress.totalSteps }}</span>
+            <span class="progress-step"
+              >Step {{ withdrawProgress.step }}/{{
+                withdrawProgress.totalSteps
+              }}</span
+            >
           </div>
           <div class="progress-bar">
             <div
               class="progress-fill"
-              :style="{ width: `${(withdrawProgress.step / withdrawProgress.totalSteps) * 100}%` }"
+              :style="{
+                width: `${(withdrawProgress.step / withdrawProgress.totalSteps) * 100}%`,
+              }"
             ></div>
           </div>
           <div class="progress-status">{{ withdrawProgress.currentStep }}</div>
         </div>
 
         <div class="modal-actions">
-          <button class="btn btn-secondary" @click="closeWithdrawModal" :disabled="loading">
+          <button
+            class="btn btn-secondary"
+            @click="closeWithdrawModal"
+            :disabled="loading"
+          >
             Cancel
           </button>
           <button
             class="btn btn-primary"
-            :disabled="loading || withdrawAmount <= 0 || withdrawAmount > usdcConfidentialBalance"
+            :disabled="
+              loading ||
+              withdrawAmount <= 0 ||
+              withdrawAmount > usdcConfidentialBalance
+            "
             @click="handleWithdraw"
           >
-            {{ withdrawProgress ? withdrawProgress.currentStep : (loading ? 'Withdrawing...' : 'Withdraw') }}
+            {{
+              withdrawProgress
+                ? withdrawProgress.currentStep
+                : loading
+                  ? 'Withdrawing...'
+                  : 'Withdraw'
+            }}
           </button>
         </div>
       </div>
@@ -256,7 +313,8 @@
       <div class="modal">
         <h3>Transfer Privately</h3>
         <p class="modal-desc">
-          Send cUSDC privately to another wallet. The amount will be encrypted and only visible to sender and recipient.
+          Send cUSDC privately to another wallet. The amount will be encrypted
+          and only visible to sender and recipient.
         </p>
 
         <div class="modal-token-info">
@@ -287,18 +345,30 @@
             step="0.01"
             placeholder="0.00"
           />
-          <button class="max-btn" @click="transferAmount = usdcConfidentialBalance">
+          <button
+            class="max-btn"
+            @click="transferAmount = usdcConfidentialBalance"
+          >
             MAX
           </button>
         </div>
 
         <div class="modal-actions">
-          <button class="btn btn-secondary" @click="closeTransferModal" :disabled="loading">
+          <button
+            class="btn btn-secondary"
+            @click="closeTransferModal"
+            :disabled="loading"
+          >
             Cancel
           </button>
           <button
             class="btn btn-primary btn-transfer-confirm"
-            :disabled="loading || transferAmount <= 0 || transferAmount > usdcConfidentialBalance || !transferRecipient"
+            :disabled="
+              loading ||
+              transferAmount <= 0 ||
+              transferAmount > usdcConfidentialBalance ||
+              !transferRecipient
+            "
             @click="handleTransfer"
           >
             {{ loading ? 'Transferring...' : 'Transfer Privately' }}
@@ -310,7 +380,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer';
 
 const props = defineProps<{
@@ -450,7 +520,10 @@ async function refreshBalances() {
   // (these require decryption)
   if (elGamalPublicKey.value) {
     usdcPendingBalance.value = await getPendingBalance(props.wallet, 'USDC');
-    usdcConfidentialBalance.value = await getConfidentialBalance(props.wallet, 'USDC');
+    usdcConfidentialBalance.value = await getConfidentialBalance(
+      props.wallet,
+      'USDC',
+    );
   }
 }
 
@@ -531,10 +604,16 @@ async function handleDeposit() {
   if (!props.wallet?.publicKey || depositAmount.value <= 0) return;
 
   try {
-    console.log(`Depositing ${depositAmount.value} ${selectedToken.value} to pending balance...`);
+    console.log(
+      `Depositing ${depositAmount.value} ${selectedToken.value} to pending balance...`,
+    );
 
     // Deposit moves public → pending (user must apply separately to move pending → available)
-    const txid = await depositToConfidential(props.wallet, depositAmount.value, selectedToken.value);
+    const txid = await depositToConfidential(
+      props.wallet,
+      depositAmount.value,
+      selectedToken.value,
+    );
     if (txid) {
       console.log('deposit to pending successful:', txid);
       closeDepositModal();
@@ -566,7 +645,9 @@ async function handleWithdraw() {
   if (!props.wallet?.publicKey || withdrawAmount.value <= 0) return;
 
   try {
-    console.log(`Withdrawing ${withdrawAmount.value} ${selectedToken.value} from confidential balance...`);
+    console.log(
+      `Withdrawing ${withdrawAmount.value} ${selectedToken.value} from confidential balance...`,
+    );
 
     const txid = await withdrawFromConfidential(
       props.wallet,
@@ -584,10 +665,17 @@ async function handleWithdraw() {
 
 // transfer confidential balance to another wallet
 async function handleTransfer() {
-  if (!props.wallet?.publicKey || transferAmount.value <= 0 || !transferRecipient.value) return;
+  if (
+    !props.wallet?.publicKey ||
+    transferAmount.value <= 0 ||
+    !transferRecipient.value
+  )
+    return;
 
   try {
-    console.log(`Transferring ${transferAmount.value} cUSDC privately to ${transferRecipient.value}...`);
+    console.log(
+      `Transferring ${transferAmount.value} cUSDC privately to ${transferRecipient.value}...`,
+    );
 
     const txid = await transferConfidential(
       props.wallet,
@@ -604,16 +692,70 @@ async function handleTransfer() {
   }
 }
 
+// Background polling interval (5 seconds)
+const POLL_INTERVAL = 10000;
+let pollIntervalId: ReturnType<typeof setInterval> | null = null;
+
+// Background refresh function (silent, no loading state)
+async function backgroundRefresh() {
+  if (!props.wallet?.publicKey || !isSetup.value || loading.value) return;
+
+  try {
+    // Refresh balances silently
+    usdcPublicBalance.value = await getPublicBalance(props.wallet, 'USDC');
+
+    if (elGamalPublicKey.value) {
+      usdcPendingBalance.value = await getPendingBalance(props.wallet, 'USDC');
+      usdcConfidentialBalance.value = await getConfidentialBalance(
+        props.wallet,
+        'USDC',
+      );
+    }
+
+    // Fetch latest transactions
+    await fetchTransactionHistory(props.wallet);
+  } catch (e) {
+    // Silent fail for background polling
+    console.debug('[CT] Background refresh error:', e);
+  }
+}
+
+// Start background polling
+function startPolling() {
+  if (pollIntervalId) return;
+  pollIntervalId = setInterval(backgroundRefresh, POLL_INTERVAL);
+}
+
+// Stop background polling
+function stopPolling() {
+  if (pollIntervalId) {
+    clearInterval(pollIntervalId);
+    pollIntervalId = null;
+  }
+}
+
 // watch for wallet changes
 watch(
   () => props.wallet?.publicKey,
-  () => {
+  (newVal) => {
     checkSetup();
+    if (newVal) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
   },
 );
 
 onMounted(() => {
   checkSetup();
+  if (props.wallet?.publicKey) {
+    startPolling();
+  }
+});
+
+onUnmounted(() => {
+  stopPolling();
 });
 </script>
 
@@ -806,7 +948,9 @@ onMounted(() => {
   border-radius: 6px;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s, visibility 0.2s;
+  transition:
+    opacity 0.2s,
+    visibility 0.2s;
   z-index: 100;
   pointer-events: none;
 }
@@ -821,7 +965,9 @@ onMounted(() => {
   border-top-color: var(--text-primary, #0f172a);
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.2s, visibility 0.2s;
+  transition:
+    opacity 0.2s,
+    visibility 0.2s;
   z-index: 100;
 }
 
@@ -916,7 +1062,9 @@ onMounted(() => {
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
 .btn-unlock:hover:not(:disabled) {
@@ -1180,13 +1328,21 @@ onMounted(() => {
 
 /* transfer button */
 .btn-transfer {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.15) 0%,
+    rgba(99, 102, 241, 0.15) 100%
+  );
   color: #10b981;
   border: none;
 }
 
 .btn-transfer:hover:not(:disabled) {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25) 0%, rgba(99, 102, 241, 0.25) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.25) 0%,
+    rgba(99, 102, 241, 0.25) 100%
+  );
 }
 
 .btn-transfer-confirm {
