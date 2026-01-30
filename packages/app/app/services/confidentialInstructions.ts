@@ -552,6 +552,35 @@ export function readDecryptableAvailableBalance(
 }
 
 /**
+ * Read the ElGamal public key from a token account's ConfidentialTransferAccount extension
+ */
+export function readElGamalPubkey(accountData: Buffer): Uint8Array | null {
+  let offset = TOKEN_ACCOUNT_SIZE;
+  if (accountData.length > TOKEN_ACCOUNT_SIZE) {
+    offset += 1; // account type byte
+  }
+
+  while (offset + 4 <= accountData.length) {
+    const extensionType = accountData.readUInt16LE(offset);
+    const extensionLength = accountData.readUInt16LE(offset + 2);
+
+    if (extensionType === 5) {
+      // ConfidentialTransferAccount
+      const extensionStart = offset + 4;
+      // elgamal_pubkey is at offset 1 within the extension (after approved bool)
+      const pubkeyOffset = extensionStart + 1;
+
+      if (pubkeyOffset + 32 <= accountData.length) {
+        return Uint8Array.from(accountData.subarray(pubkeyOffset, pubkeyOffset + 32));
+      }
+    }
+    offset += 4 + extensionLength;
+  }
+
+  return null;
+}
+
+/**
  * Read the pending_balance ciphertexts (lo and hi) from a token account
  */
 export function readPendingBalanceCiphertexts(
