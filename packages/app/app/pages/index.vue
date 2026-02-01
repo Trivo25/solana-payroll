@@ -109,6 +109,130 @@
       </section>
     </main>
 
+    <!-- App Preview Section -->
+    <section class="preview-section">
+      <div class="section-container">
+        <div class="preview-wrapper">
+          <div class="preview-glow"></div>
+          <div class="preview-frame">
+            <div class="preview-header">
+              <div class="preview-dots">
+                <span></span><span></span><span></span>
+              </div>
+              <div class="preview-url">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2"/>
+                  <path d="M7 11V7a5 5 0 0110 0v4"/>
+                </svg>
+                <span>veil.app/dashboard</span>
+              </div>
+            </div>
+            <div class="preview-content">
+              <!-- Mock Dashboard -->
+              <div class="mock-dashboard">
+                <div class="mock-nav">
+                  <div class="mock-logo">
+                    <div class="mock-logo-icon"></div>
+                    <span>Veil</span>
+                  </div>
+                  <div class="mock-wallet">
+                    <span class="mock-dot"></span>
+                    <span class="mono">7xKp...4mNq</span>
+                  </div>
+                </div>
+
+                <div class="mock-welcome">
+                  <div class="mock-avatar"></div>
+                  <div>
+                    <div class="mock-name">Welcome, Alice</div>
+                    <div class="mock-badge">Employer / Business</div>
+                  </div>
+                </div>
+
+                <div class="mock-cards">
+                  <div class="mock-card">
+                    <div class="mock-card-header">
+                      <span>Wallet Balance</span>
+                      <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <rect x="2" y="4" width="16" height="12" rx="2"/>
+                      </svg>
+                    </div>
+                    <div class="mock-balance-row">
+                      <div class="mock-token sol">◎</div>
+                      <span class="mock-amount">12.4521</span>
+                      <span class="mock-label">SOL</span>
+                    </div>
+                    <div class="mock-balance-row">
+                      <div class="mock-token usdc">$</div>
+                      <span class="mock-amount">1,250.00</span>
+                      <span class="mock-label">USDC</span>
+                    </div>
+                  </div>
+
+                  <div class="mock-card mock-card-private">
+                    <div class="mock-card-header">
+                      <span>Confidential Balance</span>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 3L4 7v6c0 5.25 3.4 10.15 8 11 4.6-.85 8-5.75 8-11V7l-8-4z"/>
+                      </svg>
+                    </div>
+                    <div class="mock-private-section">
+                      <div class="mock-balance-row">
+                        <div class="mock-token usdc">$</div>
+                        <div class="mock-private-col">
+                          <span class="mock-type">Public</span>
+                          <span class="mock-amount">850.00</span>
+                        </div>
+                      </div>
+                      <div class="mock-balance-row mock-row-private">
+                        <div class="mock-token usdc">$</div>
+                        <div class="mock-private-col">
+                          <span class="mock-type">Private</span>
+                          <span class="mock-amount mock-blur">2,500.00</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="mock-actions">
+                      <button class="mock-btn">Deposit →</button>
+                      <button class="mock-btn mock-btn-secondary">← Withdraw</button>
+                      <button class="mock-btn mock-btn-transfer">Transfer</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Animated transaction -->
+                <div class="mock-tx-animation">
+                  <div class="mock-tx">
+                    <div class="mock-tx-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 3L4 7v6c0 5.25 3.4 10.15 8 11 4.6-.85 8-5.75 8-11V7l-8-4z"/>
+                        <path d="M9 12l2 2 4-4"/>
+                      </svg>
+                    </div>
+                    <div class="mock-tx-content">
+                      <span class="mock-tx-title">Private Transfer Sent</span>
+                      <span class="mock-tx-sub">Amount hidden • Just now</span>
+                    </div>
+                    <div class="mock-tx-amount">-••••</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="preview-caption">
+            <div class="caption-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </div>
+            <span>Your private balance is blurred by default - only you can reveal it</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Features Section -->
     <section id="features" class="features-section">
       <div class="section-container">
@@ -911,6 +1035,398 @@ onUnmounted(() => {
   max-width: 560px;
   margin: 0 auto;
   line-height: 1.7;
+}
+
+/* ============================================
+   APP PREVIEW SECTION
+   ============================================ */
+.preview-section {
+  position: relative;
+  z-index: 1;
+  padding: 2rem 0 8rem;
+  margin-top: -4rem;
+}
+
+.preview-wrapper {
+  position: relative;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.preview-glow {
+  position: absolute;
+  inset: -40px;
+  background: radial-gradient(ellipse at center, rgba(16, 185, 129, 0.15) 0%, transparent 70%);
+  filter: blur(40px);
+  z-index: -1;
+}
+
+.preview-frame {
+  background: #1e293b;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow:
+    0 50px 100px -20px rgba(15, 23, 42, 0.25),
+    0 30px 60px -30px rgba(15, 23, 42, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  background: #0f172a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.preview-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.preview-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.preview-dots span:nth-child(1) { background: #ff5f57; }
+.preview-dots span:nth-child(2) { background: #ffbd2e; }
+.preview-dots span:nth-child(3) { background: #28ca42; }
+
+.preview-url {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.375rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.preview-url svg {
+  color: #10b981;
+}
+
+.preview-content {
+  padding: 0;
+}
+
+/* Mock Dashboard */
+.mock-dashboard {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  padding: 1.25rem;
+  min-height: 380px;
+}
+
+.mock-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  margin-bottom: 1.25rem;
+}
+
+.mock-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.mock-logo-icon {
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 6px;
+}
+
+.mock-wallet {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: 6px;
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.mock-dot {
+  width: 6px;
+  height: 6px;
+  background: #10b981;
+  border-radius: 50%;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.mock-welcome {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.mock-avatar {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  border-radius: 50%;
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.mock-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #0f172a;
+  margin-bottom: 0.125rem;
+}
+
+.mock-badge {
+  font-size: 0.6rem;
+  padding: 0.2rem 0.5rem;
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border-radius: 100px;
+  font-weight: 500;
+}
+
+.mock-cards {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.mock-card {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 14px;
+  padding: 1rem;
+}
+
+.mock-card-private {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(16, 185, 129, 0.05) 100%);
+  border-color: rgba(16, 185, 129, 0.15);
+}
+
+.mock-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.mock-card-header svg {
+  color: #94a3b8;
+}
+
+.mock-card-private .mock-card-header svg {
+  color: #10b981;
+}
+
+.mock-balance-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.mock-token {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+}
+
+.mock-token.sol {
+  background: linear-gradient(135deg, #9945ff 0%, #14f195 100%);
+}
+
+.mock-token.usdc {
+  background: linear-gradient(135deg, #2775ca 0%, #3b93dc 100%);
+}
+
+.mock-amount {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.mock-label {
+  font-size: 0.65rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.mock-private-section {
+  margin-bottom: 0.75rem;
+}
+
+.mock-private-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.mock-type {
+  font-size: 0.55rem;
+  text-transform: uppercase;
+  color: #94a3b8;
+  letter-spacing: 0.03em;
+}
+
+.mock-row-private {
+  background: rgba(16, 185, 129, 0.08);
+  padding: 0.375rem;
+  border-radius: 8px;
+  margin-top: 0.25rem;
+}
+
+.mock-blur {
+  filter: blur(6px);
+  transition: filter 0.3s ease;
+}
+
+.preview-wrapper:hover .mock-blur {
+  filter: blur(0);
+}
+
+.mock-actions {
+  display: flex;
+  gap: 0.375rem;
+}
+
+.mock-btn {
+  flex: 1;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.55rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: #0f172a;
+  color: white;
+  cursor: default;
+}
+
+.mock-btn-secondary {
+  background: rgba(15, 23, 42, 0.08);
+  color: #64748b;
+}
+
+.mock-btn-transfer {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
+  color: #10b981;
+}
+
+/* Animated transaction */
+.mock-tx-animation {
+  animation: tx-slide-in 1s ease-out 1s both;
+}
+
+@keyframes tx-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mock-tx {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
+}
+
+.mock-tx-icon {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.mock-tx-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.mock-tx-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.mock-tx-sub {
+  font-size: 0.6rem;
+  color: #94a3b8;
+}
+
+.mock-tx-amount {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #10b981;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+/* Preview caption */
+.preview-caption {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  margin-top: 1.5rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.caption-icon {
+  display: flex;
+  color: #10b981;
+}
+
+@media (max-width: 768px) {
+  .mock-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-section {
+    padding: 0 0 4rem;
+    margin-top: 0;
+  }
 }
 
 /* ============================================
