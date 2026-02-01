@@ -17,14 +17,13 @@
 
     <div v-if="transactions.length === 0" class="empty-state">
       <div class="empty-icon">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-          <path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          <circle cx="9" cy="9" r="1" fill="currentColor"/>
-          <circle cx="15" cy="9" r="1" fill="currentColor"/>
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
       </div>
-      <p>No transactions yet</p>
+      <p class="empty-title">No activity yet</p>
+      <p class="empty-hint">Your transactions will appear here</p>
     </div>
 
     <div v-else class="transaction-list">
@@ -187,8 +186,16 @@ function formatTime(timestamp: number): string {
   opacity: 0.5;
 }
 
-.empty-state p {
+.empty-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 0.25rem;
+}
+
+.empty-hint {
   font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .transaction-list {

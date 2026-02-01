@@ -37,7 +37,14 @@
     <div v-if="activeTab === 'scan'" class="qr-scanner">
       <div v-if="!scanning" class="scanner-placeholder">
         <button class="scan-btn" @click="startScanning">
-          <span class="scan-icon">&#x1F4F7;</span>
+          <div class="scan-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+              <rect x="14" y="3" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+              <rect x="3" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+              <rect x="14" y="14" width="7" height="7" rx="1" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </div>
           <span>Start Camera</span>
         </button>
         <p class="scanner-hint">Scan another user's QR code to connect</p>
@@ -313,7 +320,14 @@ onUnmounted(() => {
 }
 
 .scan-icon {
-  font-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  background: rgba(16, 185, 129, 0.1);
+  border-radius: 16px;
+  color: var(--secondary);
 }
 
 .scan-btn span:last-child {

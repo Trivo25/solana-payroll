@@ -247,6 +247,9 @@
           @close="closeInvoice"
           @paid="handleInvoicePaid"
         />
+
+        <!-- Onboarding Tour (shows on first visit) -->
+        <OnboardingTour />
       </div>
     </main>
   </div>
@@ -582,6 +585,7 @@ onUnmounted(() => {
 
 function disconnect() {
   walletDisconnect();
+  navigateTo('/');
 }
 
 function shortenAddress(address: string): string {

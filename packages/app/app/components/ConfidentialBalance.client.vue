@@ -466,6 +466,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer';
+import { useToast } from '~/composables/useToast';
 
 const props = defineProps<{
   wallet: any;
@@ -519,6 +520,13 @@ const transferRecipient = ref('');
 const isDev = ref(true); // always true for local dev
 const derivingKey = ref(false);
 const configuringAccount = ref(false);
+
+// Toast notifications
+const toast = useToast();
+
+// Explorer URL helper
+const getExplorerUrl = (signature: string) =>
+  `https://explorer.solana.com/tx/${signature}?cluster=custom&customUrl=http://127.0.0.1:8899`;
 
 // Error info parsing - converts raw error messages to user-friendly format
 interface ErrorInfo {
@@ -766,21 +774,27 @@ async function handleConfigureAccount() {
 async function handleDeposit() {
   if (!props.wallet?.publicKey || depositAmount.value <= 0) return;
 
+  const amount = depositAmount.value;
   try {
     console.log(
-      `Depositing ${depositAmount.value} ${selectedToken.value} to pending balance...`,
+      `Depositing ${amount} ${selectedToken.value} to pending balance...`,
     );
 
     // Deposit moves public → pending (user must apply separately to move pending → available)
     const txid = await depositToConfidential(
       props.wallet,
-      depositAmount.value,
+      amount,
       selectedToken.value,
     );
     if (txid) {
       console.log('deposit to pending successful:', txid);
       closeDepositModal();
       await refreshBalances();
+      toast.success('Deposit Successful', {
+        message: `${amount.toFixed(2)} cUSDC moved to pending balance`,
+        link: getExplorerUrl(txid),
+        linkText: 'View on Explorer',
+      });
     }
   } catch (e) {
     console.error(`${selectedToken.value} deposit failed:`, e);
@@ -797,6 +811,11 @@ async function handleApplyPending(token: TokenType) {
     if (txid) {
       console.log('pending balance applied:', txid);
       await refreshBalances();
+      toast.success('Balance Applied', {
+        message: 'Pending balance moved to private balance',
+        link: getExplorerUrl(txid),
+        linkText: 'View on Explorer',
+      });
     }
   } catch (e) {
     console.error(`${token} apply pending failed:`, e);
@@ -807,19 +826,25 @@ async function handleApplyPending(token: TokenType) {
 async function handleWithdraw() {
   if (!props.wallet?.publicKey || withdrawAmount.value <= 0) return;
 
+  const amount = withdrawAmount.value;
   try {
     console.log(
-      `Withdrawing ${withdrawAmount.value} ${selectedToken.value} from confidential balance...`,
+      `Withdrawing ${amount} ${selectedToken.value} from confidential balance...`,
     );
 
     const txid = await withdrawFromConfidential(
       props.wallet,
-      withdrawAmount.value,
+      amount,
       selectedToken.value,
     );
     if (txid) {
       closeWithdrawModal();
       await refreshBalances();
+      toast.success('Withdrawal Complete', {
+        message: `${amount.toFixed(2)} cUSDC moved to public balance`,
+        link: getExplorerUrl(txid),
+        linkText: 'View on Explorer',
+      });
     }
   } catch (e) {
     console.error(`${selectedToken.value} withdraw failed:`, e);
@@ -835,20 +860,27 @@ async function handleTransfer() {
   )
     return;
 
+  const amount = transferAmount.value;
+  const recipient = transferRecipient.value;
   try {
     console.log(
-      `Transferring ${transferAmount.value} cUSDC privately to ${transferRecipient.value}...`,
+      `Transferring ${amount} cUSDC privately to ${recipient}...`,
     );
 
     const txid = await transferConfidential(
       props.wallet,
-      transferRecipient.value,
-      transferAmount.value,
+      recipient,
+      amount,
     );
     if (txid) {
       console.log('confidential transfer successful:', txid);
       closeTransferModal();
       await refreshBalances();
+      toast.success('Transfer Complete', {
+        message: `${amount.toFixed(2)} cUSDC sent privately`,
+        link: getExplorerUrl(txid),
+        linkText: 'View on Explorer',
+      });
     }
   } catch (e) {
     console.error('confidential transfer failed:', e);
