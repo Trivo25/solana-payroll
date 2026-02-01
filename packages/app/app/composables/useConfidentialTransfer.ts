@@ -19,6 +19,7 @@ import {
   createMintToInstruction,
 } from '@solana/spl-token';
 import type { WalletAdapter } from '@solana/wallet-adapter-base';
+import { createMemoInstruction } from '@solana/spl-memo';
 
 // Services
 import { loadZkSdk } from '~/services/zkSdk';
@@ -385,10 +386,18 @@ export function useConfidentialTransfer() {
       }
 
       // Check if already configured
+      console.log('[CT] === CONFIGURE ACCOUNT DEBUG ===');
+      console.log('[CT] Wallet:', walletAddress);
+      console.log('[CT] Mint:', testMint.value);
+      console.log('[CT] Computed ATA:', ata.toBase58());
+      console.log('[CT] Account exists:', !!accountInfo);
+      console.log('[CT] Account data length:', accountInfo?.data.length || 0);
+
       if (accountInfo && hasConfidentialTransferExtension(accountInfo.data)) {
         console.log('[CT] Account already configured for confidential transfers');
         return 'already-configured';
       }
+      console.log('[CT] Account NOT yet configured, setting up CT extension...');
 
       const elGamal = getElGamalKeypair();
       const aeKey = getAeKey();
@@ -430,6 +439,17 @@ export function useConfidentialTransfer() {
       );
 
       console.log('[CT] Account configured for confidential transfers, tx:', sig);
+
+      // Verify configuration was successful
+      const verifyAccountInfo = await connection.getAccountInfo(ata);
+      if (verifyAccountInfo && hasConfidentialTransferExtension(verifyAccountInfo.data)) {
+        console.log('[CT] Configuration verified! Account now has CT extension');
+        console.log('[CT] New account data length:', verifyAccountInfo.data.length);
+      } else {
+        console.error('[CT] WARNING: Configuration transaction succeeded but account does not have CT extension!');
+        console.error('[CT] Account data length:', verifyAccountInfo?.data.length || 0);
+      }
+
       return sig;
     } catch (e: any) {
       error.value = e.message || 'Failed to configure account';
@@ -1055,6 +1075,7 @@ export function useConfidentialTransfer() {
     wallet: any,
     recipientAddress: string,
     amount: number,
+    memo?: string,  // Optional memo (e.g., payment reference for invoices)
   ): Promise<string> {
     const walletAddress = getWalletAddress(wallet);
     if (!walletAddress || !testMint.value || !hasKeys()) {
@@ -1102,10 +1123,29 @@ export function useConfidentialTransfer() {
 
       const destAccountInfo = await connection.getAccountInfo(destAta);
       if (!destAccountInfo) {
-        throw new Error('Recipient does not have a token account for this mint');
+        console.error('[CT] Recipient ATA not found:', destAta.toBase58());
+        console.error('[CT] Recipient wallet:', recipientPubkey.toBase58());
+        console.error('[CT] Mint:', mintPubkey.toBase58());
+        throw new Error('Recipient does not have a token account for this mint. They need to enable confidential transfers first.');
       }
+      console.log('[CT] === RECIPIENT ACCOUNT DEBUG ===');
+      console.log('[CT] Recipient ATA:', destAta.toBase58());
+      console.log('[CT] Recipient wallet:', recipientPubkey.toBase58());
+      console.log('[CT] Mint used:', mintPubkey.toBase58());
+      console.log('[CT] Account data length:', destAccountInfo.data.length);
+      console.log('[CT] Account owner program:', destAccountInfo.owner.toBase58());
+
+      // Log first 200 bytes of account data for debugging
+      const dataPreview = Array.from(destAccountInfo.data.slice(0, 200))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join(' ');
+      console.log('[CT] Account data preview (first 200 bytes):', dataPreview);
+
       if (!hasConfidentialTransferExtension(destAccountInfo.data)) {
-        throw new Error('Recipient account is not configured for confidential transfers');
+        console.error('[CT] Recipient account missing CT extension');
+        console.error('[CT] Expected extension type 5 (ConfidentialTransferAccount)');
+        console.error('[CT] Recipient should run "Enable Confidential Transfers" for mint:', mintPubkey.toBase58());
+        throw new Error('Recipient account is not configured for confidential transfers. They need to click "Enable Confidential Transfers" first.');
       }
 
       // Read recipient's ElGamal public key
@@ -1398,10 +1438,20 @@ export function useConfidentialTransfer() {
         auditorCiphertextHi,
       );
 
+      // Build instructions array
+      const instructions = [transferIx];
+
+      // Add memo if provided (for invoice linking, payment references, etc.)
+      if (memo) {
+        const memoIx = createMemoInstruction(memo, [walletPubkey]);
+        instructions.push(memoIx);
+        console.log('[CT] Adding memo to transfer:', memo);
+      }
+
       const sig = await buildAndSendTransaction(
         connection,
         wallet as WalletAdapter,
-        [transferIx],
+        instructions,
         { skipPreflight: true, description: 'execute confidential transfer' },
       );
 
@@ -1442,6 +1492,52 @@ export function useConfidentialTransfer() {
     } catch (e) {
       return false;
     }
+  }
+
+  /**
+   * Diagnostic function to check any wallet's CT account status
+   * Useful for debugging transfer issues
+   */
+  async function debugCheckRecipientAccount(recipientAddress: string): Promise<void> {
+    if (!testMint.value) {
+      console.error('[CT DEBUG] No mint set up');
+      return;
+    }
+
+    const connection = getConnection();
+    const recipientPubkey = new PublicKey(recipientAddress);
+    const mintPubkey = new PublicKey(testMint.value);
+
+    const ata = getAssociatedTokenAddressSync(
+      mintPubkey,
+      recipientPubkey,
+      false,
+      TOKEN_2022_PROGRAM_ID,
+    );
+
+    console.log('[CT DEBUG] =====================================');
+    console.log('[CT DEBUG] Checking recipient account');
+    console.log('[CT DEBUG] Recipient wallet:', recipientAddress);
+    console.log('[CT DEBUG] Mint:', testMint.value);
+    console.log('[CT DEBUG] Computed ATA:', ata.toBase58());
+
+    const accountInfo = await connection.getAccountInfo(ata);
+
+    if (!accountInfo) {
+      console.log('[CT DEBUG] ✗ ATA does not exist');
+      console.log('[CT DEBUG] Recipient needs to: 1) Enable CT, 2) Unlock Private Balance');
+      return;
+    }
+
+    console.log('[CT DEBUG] ✓ ATA exists');
+    console.log('[CT DEBUG] Owner program:', accountInfo.owner.toBase58());
+    console.log('[CT DEBUG] Expected owner:', TOKEN_2022_PROGRAM_ID.toBase58());
+    console.log('[CT DEBUG] Owner matches:', accountInfo.owner.equals(TOKEN_2022_PROGRAM_ID));
+    console.log('[CT DEBUG] Data length:', accountInfo.data.length);
+
+    const hasCT = hasConfidentialTransferExtension(accountInfo.data);
+    console.log('[CT DEBUG] Has CT extension:', hasCT ? '✓ YES' : '✗ NO');
+    console.log('[CT DEBUG] =====================================');
   }
 
   /**
@@ -1595,5 +1691,6 @@ export function useConfidentialTransfer() {
     fetchTransactionHistory,
     clearTransactionHistory,
     clearError,
+    debugCheckRecipientAccount,
   };
 }

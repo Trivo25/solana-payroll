@@ -650,24 +650,67 @@ export function readAvailableBalanceCiphertext(
 }
 
 /**
+ * Extension type names for debugging
+ */
+const EXTENSION_TYPE_NAMES: Record<number, string> = {
+  0: 'Uninitialized',
+  1: 'TransferFeeConfig',
+  2: 'TransferFeeAmount',
+  3: 'MintCloseAuthority',
+  4: 'ConfidentialTransferMint',
+  5: 'ConfidentialTransferAccount',
+  6: 'DefaultAccountState',
+  7: 'ImmutableOwner',
+  8: 'MemoTransfer',
+  9: 'NonTransferable',
+  10: 'InterestBearingConfig',
+  11: 'CpiGuard',
+  12: 'PermanentDelegate',
+  13: 'NonTransferableAccount',
+  14: 'TransferHook',
+  15: 'TransferHookAccount',
+  16: 'MetadataPointer',
+  17: 'TokenMetadata',
+  18: 'GroupPointer',
+  19: 'TokenGroup',
+  20: 'GroupMemberPointer',
+  21: 'TokenGroupMember',
+};
+
+/**
  * Check if a token account has the ConfidentialTransferAccount extension
  */
 export function hasConfidentialTransferExtension(accountData: Buffer): boolean {
+  console.log('[CT] === EXTENSION CHECK ===');
+  console.log('[CT] Account data length:', accountData.length);
+  console.log('[CT] Token account base size:', TOKEN_ACCOUNT_SIZE);
+
   let offset = TOKEN_ACCOUNT_SIZE;
   if (accountData.length > TOKEN_ACCOUNT_SIZE) {
+    const accountType = accountData.readUInt8(TOKEN_ACCOUNT_SIZE);
+    console.log('[CT] Account type byte at offset', TOKEN_ACCOUNT_SIZE, ':', accountType);
     offset += 1; // account type byte
   }
 
+  console.log('[CT] Starting extension scan at offset:', offset);
+
+  const extensions: { type: number; name: string; length: number; offset: number }[] = [];
   while (offset + 4 <= accountData.length) {
     const extensionType = accountData.readUInt16LE(offset);
     const extensionLength = accountData.readUInt16LE(offset + 2);
+    const extensionName = EXTENSION_TYPE_NAMES[extensionType] || `Unknown(${extensionType})`;
+
+    extensions.push({ type: extensionType, name: extensionName, length: extensionLength, offset });
 
     if (extensionType === 5) {
       // ConfidentialTransferAccount
+      console.log('[CT] ✓ Found ConfidentialTransferAccount extension at offset', offset, 'length:', extensionLength);
       return true;
     }
     offset += 4 + extensionLength;
   }
 
+  console.log('[CT] Extensions found:', extensions.map(e => `${e.name}(type=${e.type}, len=${e.length})`).join(', ') || 'none');
+  console.log('[CT] ✗ ConfidentialTransferAccount (type 5) NOT found');
   return false;
 }

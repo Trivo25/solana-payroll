@@ -17,6 +17,7 @@
     "@noble/hashes": "^1.7.2",
     "@solana-program/token-2022": "^0.6.1",
     "@solana/kit": "^5.4.0",
+    "@solana/spl-memo": "^0.2.5",
     "@solana/spl-token": "^0.4.14",
     "@solana/sysvars": "^5.4.0",
     "@solana/wallet-adapter-base": "^0.9.27",

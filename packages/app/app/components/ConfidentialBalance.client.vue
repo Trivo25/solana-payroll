@@ -410,6 +410,18 @@
           </button>
         </div>
 
+        <div class="input-group">
+          <label>Memo <span class="optional-label">(optional)</span></label>
+          <input
+            v-model="transferMemo"
+            type="text"
+            placeholder="Add a note or reference"
+            class="memo-input"
+            :disabled="loading"
+            maxlength="100"
+          />
+        </div>
+
         <!-- Transfer progress indicator -->
         <div v-if="withdrawProgress && showTransferModal" class="withdraw-progress transfer-progress">
           <div class="progress-header">
@@ -494,7 +506,14 @@ const {
   isAccountConfigured,
   fetchTransactionHistory,
   clearError: clearComposableError,
+  debugCheckRecipientAccount,
 } = useConfidentialTransfer();
+
+// Expose debug function globally for console access
+if (typeof window !== 'undefined') {
+  (window as any).debugCheckRecipient = debugCheckRecipientAccount;
+  console.log('[CT] Debug: Call window.debugCheckRecipient("wallet_address") to check any account');
+}
 
 // Token type
 type TokenType = 'USDC';
@@ -516,6 +535,7 @@ const depositAmount = ref(0);
 const withdrawAmount = ref(0);
 const transferAmount = ref(0);
 const transferRecipient = ref('');
+const transferMemo = ref('');
 
 const isDev = ref(true); // always true for local dev
 const derivingKey = ref(false);
@@ -648,6 +668,7 @@ function closeTransferModal() {
   showTransferModal.value = false;
   transferAmount.value = 0;
   transferRecipient.value = '';
+  transferMemo.value = '';
 }
 
 // check if already setup
@@ -862,15 +883,18 @@ async function handleTransfer() {
 
   const amount = transferAmount.value;
   const recipient = transferRecipient.value;
+  const memo = transferMemo.value.trim() || undefined;
   try {
     console.log(
       `Transferring ${amount} cUSDC privately to ${recipient}...`,
+      memo ? `with memo: ${memo}` : '',
     );
 
     const txid = await transferConfidential(
       props.wallet,
       recipient,
       amount,
+      memo,
     );
     if (txid) {
       console.log('confidential transfer successful:', txid);
@@ -1643,5 +1667,17 @@ onUnmounted(() => {
 .recipient-input {
   padding-right: 0.75rem !important;
   font-size: 0.875rem !important;
+}
+
+/* memo input */
+.memo-input {
+  padding-right: 0.75rem !important;
+  font-size: 0.875rem !important;
+}
+
+.optional-label {
+  font-weight: 400;
+  color: var(--text-muted);
+  font-size: 0.7rem;
 }
 </style>
