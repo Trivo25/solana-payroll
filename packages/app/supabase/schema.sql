@@ -69,3 +69,76 @@ create policy "anyone can update profile pictures"
 create policy "anyone can delete profile pictures"
   on storage.objects for delete
   using (bucket_id = 'profile-pictures');
+
+-- ============================================
+-- INVOICES TABLE
+-- ============================================
+
+-- invoices table for storing payment requests
+create table if not exists invoices (
+  id uuid default gen_random_uuid() primary key,
+
+  -- parties (wallet addresses)
+  sender_wallet text not null,      -- who created the invoice (will receive payment)
+  recipient_wallet text not null,   -- who needs to pay
+
+  -- payment details
+  amount decimal(20, 9) not null,   -- payment amount (supports up to 9 decimals for tokens)
+  mint text not null,               -- token mint address (e.g., USDC)
+
+  -- status tracking
+  status text not null default 'pending' check (status in ('pending', 'paid', 'overdue', 'cancelled')),
+
+  -- metadata
+  title text not null,
+  description text,
+  due_date timestamp with time zone,
+  category text,
+
+  -- payment info (filled when paid)
+  paid_at timestamp with time zone,
+  tx_signature text,                -- blockchain transaction signature
+  payment_method text check (payment_method in ('public', 'confidential')),
+
+  -- payment reference (for CT linking)
+  payment_nonce text,               -- random nonce used in payment reference hash
+  payment_ref text,                 -- hash(invoice + nonce) for verification
+
+  -- zk receipt data
+  receipt_hash text,
+  proof_available boolean default false,
+
+  -- timestamps
+  created_at timestamp with time zone default timezone('utc', now()) not null,
+  updated_at timestamp with time zone default timezone('utc', now()) not null
+);
+
+-- indexes for faster queries
+create index if not exists idx_invoices_sender on invoices(sender_wallet);
+create index if not exists idx_invoices_recipient on invoices(recipient_wallet);
+create index if not exists idx_invoices_status on invoices(status);
+create index if not exists idx_invoices_payment_ref on invoices(payment_ref);
+
+-- trigger to update updated_at on row changes
+create trigger update_invoices_updated_at
+  before update on invoices
+  for each row
+  execute function update_updated_at_column();
+
+-- enable row level security
+alter table invoices enable row level security;
+
+-- policy: anyone can read invoices they're involved in
+create policy "users can view their invoices"
+  on invoices for select
+  using (true);  -- for hackathon demo, allow all reads
+
+-- policy: anyone can create invoices
+create policy "users can create invoices"
+  on invoices for insert
+  with check (true);
+
+-- policy: anyone can update invoices (for payment status)
+create policy "users can update invoices"
+  on invoices for update
+  using (true);
