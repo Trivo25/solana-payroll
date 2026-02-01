@@ -147,6 +147,46 @@ export function useInvoices() {
     }
   }
 
+  // Fetch single invoice by ID (for payment links)
+  async function fetchInvoiceById(invoiceId: string): Promise<Invoice | null> {
+    if (!supabase) {
+      error.value = 'Supabase not initialized';
+      return null;
+    }
+
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('id', invoiceId)
+        .single();
+
+      if (fetchError) {
+        console.error('[Invoices] Fetch by ID error:', fetchError);
+        error.value = fetchError.message;
+        return null;
+      }
+
+      const invoice = rowToInvoice(data as InvoiceRow);
+
+      // add to local cache if not present
+      if (!invoices.value.find(inv => inv.id === invoice.id)) {
+        invoices.value.push(invoice);
+      }
+
+      return invoice;
+    } catch (e: any) {
+      error.value = e.message || 'Failed to fetch invoice';
+      console.error('[Invoices] Error:', e);
+      return null;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   // Create a new invoice
   async function createInvoice(
     senderWallet: string,
@@ -328,6 +368,7 @@ export function useInvoices() {
     loading,
     error,
     fetchInvoices,
+    fetchInvoiceById,
     createInvoice,
     payInvoice,
     cancelInvoice,

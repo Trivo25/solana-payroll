@@ -32,6 +32,7 @@ export default defineNuxtConfig({
     '/dashboard': { ssr: false },
     '/connect': { ssr: false },
     '/verify/**': { ssr: false },
+    '/pay/**': { ssr: false },
   },
 
   runtimeConfig: {

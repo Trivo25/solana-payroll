@@ -258,6 +258,57 @@
           </div>
         </div>
 
+        <!-- Payment Link Section (for sender when pending) -->
+        <div v-if="isSender && invoice.status === 'pending'" class="payment-link-section">
+          <h3 class="section-title">Share Payment Link</h3>
+          <p class="link-description">
+            Share this link with the payer to request payment.
+          </p>
+
+          <div class="qr-container">
+            <canvas ref="qrCanvas" class="qr-code"></canvas>
+          </div>
+
+          <div class="link-input-row">
+            <input
+              type="text"
+              :value="paymentLink"
+              readonly
+              class="link-input mono"
+              @click="($event.target as HTMLInputElement).select()"
+            />
+            <button class="copy-link-btn" @click="copyPaymentLink">
+              <svg v-if="!copiedLink" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+              </svg>
+              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="share-buttons">
+            <button class="share-btn" @click="shareViaEmail">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+              Email
+            </button>
+            <button class="share-btn" @click="shareNative" v-if="canShare">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="18" cy="5" r="3"/>
+                <circle cx="6" cy="12" r="3"/>
+                <circle cx="18" cy="19" r="3"/>
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              </svg>
+              Share
+            </button>
+          </div>
+        </div>
+
         <!-- Payment Section (for payer when pending) -->
         <div v-if="canPay" class="payment-section">
           <h3 class="section-title">Pay This Invoice</h3>
@@ -374,7 +425,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import QRCode from 'qrcode'
 import { type Invoice, type PayInvoiceInput, formatDate, useInvoices, generatePaymentRef, derivePaymentNonce } from '~/composables/useInvoices'
 import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer'
 import { useToast } from '~/composables/useToast'
@@ -423,7 +475,9 @@ const copiedTx = ref(false)
 const copiedProof = ref(false)
 const copiedNonce = ref(false)
 const copiedPaymentRef = ref(false)
+const copiedLink = ref(false)
 const generatedReceipt = ref<ZkReceiptProof | null>(null)
+const qrCanvas = ref<HTMLCanvasElement | null>(null)
 
 // Computed from ZK composable
 const generatingProof = computed(() => zkLoading.value)
@@ -463,6 +517,17 @@ const canExecutePayment = computed(() => {
     return canPayConfidential.value
   }
   return publicBalance.value >= props.invoice.amount
+})
+
+// payment link
+const paymentLink = computed(() => {
+  if (typeof window === 'undefined') return ''
+  return `${window.location.origin}/pay/${props.invoice.id}`
+})
+
+// can use native share API
+const canShare = computed(() => {
+  return typeof navigator !== 'undefined' && !!navigator.share
 })
 
 // check if any disclosure options are selected
@@ -512,8 +577,13 @@ async function checkPaymentCapabilities() {
 
 // Watch for modal open
 watch(() => props.isOpen, (isOpen) => {
-  if (isOpen && canPay.value) {
-    checkPaymentCapabilities()
+  if (isOpen) {
+    // generate QR code for payment link (if sender)
+    generateQR()
+    // check payment capabilities (if payer)
+    if (canPay.value) {
+      checkPaymentCapabilities()
+    }
   }
 }, { immediate: true })
 
@@ -656,6 +726,57 @@ async function copyPaymentRef() {
     await navigator.clipboard.writeText(props.invoice.paymentRef)
     copiedPaymentRef.value = true
     setTimeout(() => { copiedPaymentRef.value = false }, 2000)
+  }
+}
+
+async function copyPaymentLink() {
+  await navigator.clipboard.writeText(paymentLink.value)
+  copiedLink.value = true
+  toast.success('Link Copied', { message: 'Payment link copied to clipboard.' })
+  setTimeout(() => { copiedLink.value = false }, 2000)
+}
+
+function shareViaEmail() {
+  const subject = encodeURIComponent(`Payment Request: ${props.invoice.title}`)
+  const body = encodeURIComponent(
+    `You have a payment request for $${props.invoice.amount} USDC.\n\n` +
+    `Pay securely here: ${paymentLink.value}\n\n` +
+    `Powered by Veil - Private Payments on Solana`
+  )
+  window.open(`mailto:?subject=${subject}&body=${body}`, '_blank')
+}
+
+async function shareNative() {
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: `Payment Request: ${props.invoice.title}`,
+        text: `Pay $${props.invoice.amount} USDC securely`,
+        url: paymentLink.value,
+      })
+    } catch (e) {
+      // user cancelled or share failed
+      console.log('Share cancelled')
+    }
+  }
+}
+
+// generate QR code when modal opens
+async function generateQR() {
+  await nextTick()
+  if (qrCanvas.value && props.invoice.status === 'pending' && props.invoice.sender === props.walletAddress) {
+    try {
+      await QRCode.toCanvas(qrCanvas.value, paymentLink.value, {
+        width: 180,
+        margin: 2,
+        color: {
+          dark: '#0f172a',
+          light: '#ffffff',
+        },
+      })
+    } catch (e) {
+      console.error('QR generation failed:', e)
+    }
   }
 }
 
@@ -1505,5 +1626,107 @@ function shareProof() {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* Payment Link Section */
+.payment-link-section {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 16px;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.payment-link-section .section-title {
+  margin-bottom: 0.5rem;
+}
+
+.link-description {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.qr-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.qr-code {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.link-input-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.link-input {
+  flex: 1;
+  padding: 0.625rem 0.875rem;
+  background: white;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.link-input:focus {
+  outline: none;
+  border-color: #6366f1;
+}
+
+.copy-link-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: #6366f1;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.copy-link-btn:hover {
+  background: #4f46e5;
+}
+
+.share-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.share-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: white;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.share-btn:hover {
+  background: rgba(15, 23, 42, 0.03);
+  border-color: rgba(15, 23, 42, 0.15);
+}
+
+.share-btn svg {
+  color: var(--text-secondary);
 }
 </style>
