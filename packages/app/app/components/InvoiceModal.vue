@@ -169,23 +169,48 @@
                 :disabled="!hasSelectedOptions || generatingProof"
                 @click="generateProof"
               >
-                <span v-if="generatingProof">Generating Proof...</span>
+                <span v-if="generatingProof" class="btn-loading">
+                  <span class="spinner"></span>
+                  {{ zkProgress.message || 'Generating...' }}
+                </span>
                 <span v-else>Generate ZK Proof</span>
               </button>
 
+              <!-- proof progress -->
+              <div v-if="generatingProof && zkProgress.step !== 'idle'" class="zk-progress">
+                <div class="zk-progress-step">{{ zkProgress.message }}</div>
+                <div class="zk-progress-hint">This may take 10-30 seconds...</div>
+              </div>
+
               <!-- proof result -->
-              <div v-if="proofGenerated" class="proof-result">
+              <div v-if="proofGenerated && generatedReceipt" class="proof-result">
                 <div class="proof-success">
                   <span class="success-icon">&#x2713;</span>
-                  <span>Proof Generated Successfully</span>
+                  <span>ZK Receipt Generated</span>
                 </div>
-                <div class="proof-hash mono">{{ proofHash }}</div>
+                <div class="proof-info">
+                  <div class="proof-info-item">
+                    <span class="info-label">Invoice</span>
+                    <span class="info-value mono">{{ generatedReceipt.invoiceId.slice(0, 8) }}...</span>
+                  </div>
+                  <div class="proof-info-item">
+                    <span class="info-label">Payment Ref</span>
+                    <span class="info-value mono">{{ generatedReceipt.paymentRef.slice(0, 16) }}...</span>
+                  </div>
+                  <div class="proof-info-item">
+                    <span class="info-label">Created</span>
+                    <span class="info-value">{{ new Date(generatedReceipt.createdAt).toLocaleString() }}</span>
+                  </div>
+                </div>
                 <div class="proof-actions">
+                  <button class="action-btn primary" @click="handleDownloadProof">
+                    Download Receipt
+                  </button>
                   <button class="action-btn" @click="copyProof">
                     {{ copiedProof ? 'Copied!' : 'Copy Proof' }}
                   </button>
                   <button class="action-btn secondary" @click="shareProof">
-                    Share Proof
+                    Share Link
                   </button>
                 </div>
               </div>
@@ -317,6 +342,7 @@ import { ref, computed, watch } from 'vue'
 import { type Invoice, type PayInvoiceInput, formatDate, useInvoices, generatePaymentRef, derivePaymentNonce } from '~/composables/useInvoices'
 import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer'
 import { useToast } from '~/composables/useToast'
+import { useZkReceipts, type ZkReceiptProof } from '~/composables/useZkReceipts'
 
 const props = defineProps<{
   invoice: Invoice
@@ -339,6 +365,14 @@ const {
   withdrawProgress,
 } = useConfidentialTransfer()
 const toast = useToast()
+const {
+  generateReceipt,
+  verifyReceipt,
+  downloadProof,
+  progress: zkProgress,
+  loading: zkLoading,
+  error: zkError,
+} = useZkReceipts()
 
 // Payment state
 const paying = ref(false)
@@ -353,9 +387,11 @@ const copiedTx = ref(false)
 const copiedProof = ref(false)
 const copiedNonce = ref(false)
 const copiedPaymentRef = ref(false)
-const generatingProof = ref(false)
-const proofGenerated = ref(false)
-const proofHash = ref('')
+const generatedReceipt = ref<ZkReceiptProof | null>(null)
+
+// Computed from ZK composable
+const generatingProof = computed(() => zkLoading.value)
+const proofGenerated = computed(() => generatedReceipt.value !== null)
 
 const disclosureOptions = ref({
   amountRange: false,
@@ -582,28 +618,49 @@ async function copyPaymentRef() {
 }
 
 async function generateProof() {
-  generatingProof.value = true
-  // simulate proof generation
-  await new Promise(resolve => setTimeout(resolve, 2000))
+  // Generate real ZK proof using NoirJS
+  const receipt = await generateReceipt(props.invoice)
 
-  // generate dummy proof hash
-  proofHash.value = '0x' + Array.from({ length: 64 }, () =>
-    Math.floor(Math.random() * 16).toString(16)
-  ).join('')
-
-  proofGenerated.value = true
-  generatingProof.value = false
+  if (receipt) {
+    generatedReceipt.value = receipt
+    toast.success('ZK Proof Generated', {
+      message: 'Your privacy-preserving receipt is ready to download or share.',
+    })
+  } else {
+    toast.error('Proof Generation Failed', {
+      message: zkError.value || 'Could not generate ZK proof. Please try again.',
+    })
+  }
 }
 
 async function copyProof() {
-  await navigator.clipboard.writeText(proofHash.value)
-  copiedProof.value = true
-  setTimeout(() => { copiedProof.value = false }, 2000)
+  if (generatedReceipt.value) {
+    await navigator.clipboard.writeText(generatedReceipt.value.serialized)
+    copiedProof.value = true
+    toast.success('Proof Copied', { message: 'Proof data copied to clipboard.' })
+    setTimeout(() => { copiedProof.value = false }, 2000)
+  }
+}
+
+function handleDownloadProof() {
+  if (generatedReceipt.value) {
+    downloadProof(generatedReceipt.value)
+    toast.success('Proof Downloaded', { message: 'ZK receipt saved as JSON file.' })
+  }
 }
 
 function shareProof() {
-  // todo: implement proof sharing (could open a share modal or generate a link)
-  alert(`Share this proof hash:\n\n${proofHash.value}\n\nSharing functionality coming soon!`)
+  if (generatedReceipt.value) {
+    // Generate a shareable link (would normally save to DB and create URL)
+    const proofId = generatedReceipt.value.invoiceId.slice(0, 8)
+    const shareUrl = `${window.location.origin}/verify/${proofId}`
+
+    // For now, copy to clipboard since we don't have backend storage yet
+    navigator.clipboard.writeText(shareUrl)
+    toast.success('Share Link Copied', {
+      message: 'Verification link copied. Note: Full sharing requires backend integration.',
+    })
+  }
 }
 </script>
 
@@ -953,6 +1010,42 @@ function shareProof() {
   cursor: not-allowed;
 }
 
+.generate-proof-btn .btn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.generate-proof-btn .spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ZK Progress */
+.zk-progress {
+  text-align: center;
+  padding: 0.75rem;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 8px;
+}
+
+.zk-progress-step {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6366f1;
+  margin-bottom: 0.25rem;
+}
+
+.zk-progress-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
 /* proof result */
 .proof-result {
   background: rgba(16, 185, 129, 0.05);
@@ -982,6 +1075,32 @@ function shareProof() {
   padding: 0.5rem;
   border-radius: 6px;
   margin-bottom: 0.75rem;
+}
+
+.proof-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: white;
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+
+.proof-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.proof-info-item .info-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.proof-info-item .info-value {
+  font-size: 0.75rem;
+  color: var(--text-primary);
 }
 
 .proof-actions {
