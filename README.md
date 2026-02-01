@@ -1,5 +1,9 @@
 # Veil - Private Transactions on Solana
 
+The project is deployed to: https://solana-payroll-app.vercel.app
+
+Keep in mind to ONLY use a dummy private key - never your real private keys. It is recommended to connect via Phantom.
+
 > Your private financial layer on Solana. Like Wise, but on-chain and truly private.
 
 This project enables private transactions, payroll, and invoicing on Solana by combining Confidential Transfers for hidden payments with Noir-based zero-knowledge receipts for selective, verifiable disclosure.
