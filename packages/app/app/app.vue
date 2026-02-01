@@ -7,8 +7,6 @@
 </template>
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-
 /* Modern Veil Palette */
 :root {
   --primary: #0f172a;
@@ -43,7 +41,7 @@
 }
 
 html, body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, sans-serif;
   background-color: var(--background);
   color: var(--text-primary);
   min-height: 100vh;
@@ -58,7 +56,7 @@ html, body {
 
 /* Mono font for addresses, hashes, etc */
 .mono {
-  font-family: 'JetBrains Mono', 'Roboto Mono', monospace;
+  font-family: 'IBM Plex Mono', monospace;
 }
 
 /* Common button styles */

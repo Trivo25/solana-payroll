@@ -385,13 +385,11 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-
 .landing {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Satoshi', -apple-system, BlinkMacSystemFont, sans-serif;
   background: #fafafa;
 }
 
@@ -1092,7 +1090,7 @@ onUnmounted(() => {
 }
 
 .step-code code {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 0.8rem;
   color: #059669;
 }
@@ -1198,7 +1196,7 @@ onUnmounted(() => {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(6, 182, 212, 0.05) 100%);
   border: 1px solid rgba(16, 185, 129, 0.12);
   border-radius: 100px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'IBM Plex Mono', monospace;
   font-size: 0.75rem;
   color: #059669;
   font-weight: 500;

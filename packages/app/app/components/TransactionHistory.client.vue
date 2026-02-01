@@ -286,7 +286,7 @@ function formatTime(timestamp: number): string {
 .tx-amount {
   font-size: 0.75rem;
   font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'IBM Plex Mono', monospace;
   flex-shrink: 0;
 }
 

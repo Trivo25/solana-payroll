@@ -696,6 +696,6 @@ onMounted(() => {
 
 /* Utilities */
 .mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'IBM Plex Mono', monospace;
 }
 </style>
