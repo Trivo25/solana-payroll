@@ -5,8 +5,8 @@
 import { PublicKey } from '@solana/web3.js';
 
 // rpc configuration
-export const RPC_URL = 'http://127.0.0.1:8899';
-export const WS_URL = 'ws://127.0.0.1:8900';
+export const RPC_URL = 'https://zk-edge.surfnet.dev:8899';
+export const WS_URL = 'wss://zk-edge.surfnet.dev:8900';
 
 // token configuration
 export const DECIMALS = 9;

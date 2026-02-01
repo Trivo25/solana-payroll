@@ -4,8 +4,20 @@
       <div class="balance-label">Confidential Balance</div>
       <div class="balance-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M12 3L4 7v6c0 5.25 3.4 10.15 8 11 4.6-.85 8-5.75 8-11V7l-8-4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path
+            d="M12 3L4 7v6c0 5.25 3.4 10.15 8 11 4.6-.85 8-5.75 8-11V7l-8-4z"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M9 12l2 2 4-4"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </svg>
       </div>
     </div>
@@ -30,8 +42,21 @@
           <div class="unlock-content">
             <div class="unlock-icon">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-                <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/>
-                <path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <rect
+                  x="5"
+                  y="11"
+                  width="14"
+                  height="10"
+                  rx="2"
+                  stroke="currentColor"
+                  stroke-width="2"
+                />
+                <path
+                  d="M8 11V7a4 4 0 018 0v4"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
               </svg>
             </div>
             <p class="unlock-text">Private balances are encrypted</p>
@@ -84,8 +109,21 @@
                 <span v-else class="balance-value locked">
                   <span class="lock-icon">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/>
-                      <path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                      <rect
+                        x="5"
+                        y="11"
+                        width="14"
+                        height="10"
+                        rx="2"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      />
+                      <path
+                        d="M8 11V7a4 4 0 018 0v4"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                      />
                     </svg>
                   </span>
                 </span>
@@ -107,8 +145,21 @@
                 <span v-else class="balance-value locked">
                   <span class="lock-icon">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                      <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/>
-                      <path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                      <rect
+                        x="5"
+                        y="11"
+                        width="14"
+                        height="10"
+                        rx="2"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      />
+                      <path
+                        d="M8 11V7a4 4 0 018 0v4"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                      />
                     </svg>
                   </span>
                 </span>
@@ -190,293 +241,343 @@
 
     <!-- deposit modal -->
     <Teleport to="body">
-    <div
-      v-if="showDepositModal"
-      class="modal-overlay"
-      @click.self="!loading && closeDepositModal()"
-    >
-      <div class="modal">
-        <div class="modal-header">
-          <h3>Deposit to c{{ selectedToken }}</h3>
-          <button class="modal-close" @click="closeDepositModal" :disabled="loading">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </button>
-        </div>
-        <p class="modal-desc">
-          Move USDC from public to private balance. Once deposited, your balance
-          will be encrypted.
-        </p>
+      <div
+        v-if="showDepositModal"
+        class="modal-overlay"
+        @click.self="!loading && closeDepositModal()"
+      >
+        <div class="modal">
+          <div class="modal-header">
+            <h3>Deposit to c{{ selectedToken }}</h3>
+            <button
+              class="modal-close"
+              @click="closeDepositModal"
+              :disabled="loading"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M18 6L6 18M6 6l12 12"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+          <p class="modal-desc">
+            Move USDC from public to private balance. Once deposited, your
+            balance will be encrypted.
+          </p>
 
-        <div class="modal-token-info">
-          <span class="token-icon usdc">$</span>
-          <span class="token-label">cUSDC</span>
-          <span class="available-balance mono">
-            Available: {{ formatBalance(usdcPublicBalance, 2) }}
-          </span>
-        </div>
-
-        <div class="input-group">
-          <label>Amount</label>
-          <input
-            v-model.number="depositAmount"
-            type="number"
-            :max="usdcPublicBalance"
-            min="0"
-            step="0.01"
-            placeholder="0.00"
-            :disabled="loading"
-          />
-          <button class="max-btn" @click="depositAmount = usdcPublicBalance" :disabled="loading">
-            MAX
-          </button>
-        </div>
-
-        <div class="modal-actions">
-          <button class="btn btn-secondary" @click="closeDepositModal" :disabled="loading">
-            Cancel
-          </button>
-          <button
-            class="btn btn-primary"
-            :disabled="
-              loading || depositAmount <= 0 || depositAmount > usdcPublicBalance
-            "
-            @click="handleDeposit"
-          >
-            <span v-if="loading" class="btn-loading">
-              <span class="spinner-small"></span>
-              Depositing...
+          <div class="modal-token-info">
+            <span class="token-icon usdc">$</span>
+            <span class="token-label">cUSDC</span>
+            <span class="available-balance mono">
+              Available: {{ formatBalance(usdcPublicBalance, 2) }}
             </span>
-            <span v-else>Deposit</span>
-          </button>
+          </div>
+
+          <div class="input-group">
+            <label>Amount</label>
+            <input
+              v-model.number="depositAmount"
+              type="number"
+              :max="usdcPublicBalance"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              :disabled="loading"
+            />
+            <button
+              class="max-btn"
+              @click="depositAmount = usdcPublicBalance"
+              :disabled="loading"
+            >
+              MAX
+            </button>
+          </div>
+
+          <div class="modal-actions">
+            <button
+              class="btn btn-secondary"
+              @click="closeDepositModal"
+              :disabled="loading"
+            >
+              Cancel
+            </button>
+            <button
+              class="btn btn-primary"
+              :disabled="
+                loading ||
+                depositAmount <= 0 ||
+                depositAmount > usdcPublicBalance
+              "
+              @click="handleDeposit"
+            >
+              <span v-if="loading" class="btn-loading">
+                <span class="spinner-small"></span>
+                Depositing...
+              </span>
+              <span v-else>Deposit</span>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
     </Teleport>
 
     <!-- withdraw modal -->
     <Teleport to="body">
-    <div
-      v-if="showWithdrawModal"
-      class="modal-overlay"
-      @click.self="!loading && closeWithdrawModal()"
-    >
-      <div class="modal">
-        <div class="modal-header">
-          <h3>Withdraw from cUSDC</h3>
-          <button class="modal-close" @click="closeWithdrawModal" :disabled="loading">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </button>
-        </div>
-        <p class="modal-desc">
-          Move USDC from private to public balance. This requires generating a
-          ZK proof.
-        </p>
-
-        <div class="modal-token-info">
-          <span class="token-icon usdc">$</span>
-          <span class="token-label">cUSDC</span>
-          <span class="available-balance mono">
-            Available: {{ formatBalance(usdcConfidentialBalance, 2) }}
-          </span>
-        </div>
-
-        <div class="input-group">
-          <label>Amount</label>
-          <input
-            v-model.number="withdrawAmount"
-            type="number"
-            :max="usdcConfidentialBalance"
-            min="0"
-            step="0.01"
-            placeholder="0.00"
-            :disabled="loading"
-          />
-          <button
-            class="max-btn"
-            @click="withdrawAmount = usdcConfidentialBalance"
-            :disabled="loading"
-          >
-            MAX
-          </button>
-        </div>
-
-        <!-- Withdraw progress indicator -->
-        <div v-if="withdrawProgress" class="withdraw-progress">
-          <div class="progress-header">
-            <span class="progress-title">Processing Withdrawal</span>
-            <span class="progress-step"
-              >Step {{ withdrawProgress.step }}/{{
-                withdrawProgress.totalSteps
-              }}</span
+      <div
+        v-if="showWithdrawModal"
+        class="modal-overlay"
+        @click.self="!loading && closeWithdrawModal()"
+      >
+        <div class="modal">
+          <div class="modal-header">
+            <h3>Withdraw from cUSDC</h3>
+            <button
+              class="modal-close"
+              @click="closeWithdrawModal"
+              :disabled="loading"
             >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M18 6L6 18M6 6l12 12"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
           </div>
-          <div class="progress-bar">
-            <div
-              class="progress-fill"
-              :style="{
-                width: `${(withdrawProgress.step / withdrawProgress.totalSteps) * 100}%`,
-              }"
-            ></div>
-          </div>
-          <div class="progress-status">{{ withdrawProgress.currentStep }}</div>
-        </div>
+          <p class="modal-desc">
+            Move USDC from private to public balance. This requires generating a
+            ZK proof.
+          </p>
 
-        <div class="modal-actions">
-          <button
-            class="btn btn-secondary"
-            @click="closeWithdrawModal"
-            :disabled="loading"
-          >
-            Cancel
-          </button>
-          <button
-            class="btn btn-primary"
-            :disabled="
-              loading ||
-              withdrawAmount <= 0 ||
-              withdrawAmount > usdcConfidentialBalance
-            "
-            @click="handleWithdraw"
-          >
-            <span v-if="withdrawProgress && showWithdrawModal" class="btn-loading">
-              <span class="spinner-small"></span>
-              Processing...
+          <div class="modal-token-info">
+            <span class="token-icon usdc">$</span>
+            <span class="token-label">cUSDC</span>
+            <span class="available-balance mono">
+              Available: {{ formatBalance(usdcConfidentialBalance, 2) }}
             </span>
-            <span v-else>
-              {{ loading ? 'Withdrawing...' : 'Withdraw' }}
-            </span>
-          </button>
+          </div>
+
+          <div class="input-group">
+            <label>Amount</label>
+            <input
+              v-model.number="withdrawAmount"
+              type="number"
+              :max="usdcConfidentialBalance"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              :disabled="loading"
+            />
+            <button
+              class="max-btn"
+              @click="withdrawAmount = usdcConfidentialBalance"
+              :disabled="loading"
+            >
+              MAX
+            </button>
+          </div>
+
+          <!-- Withdraw progress indicator -->
+          <div v-if="withdrawProgress" class="withdraw-progress">
+            <div class="progress-header">
+              <span class="progress-title">Processing Withdrawal</span>
+              <span class="progress-step"
+                >Step {{ withdrawProgress.step }}/{{
+                  withdrawProgress.totalSteps
+                }}</span
+              >
+            </div>
+            <div class="progress-bar">
+              <div
+                class="progress-fill"
+                :style="{
+                  width: `${(withdrawProgress.step / withdrawProgress.totalSteps) * 100}%`,
+                }"
+              ></div>
+            </div>
+            <div class="progress-status">
+              {{ withdrawProgress.currentStep }}
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button
+              class="btn btn-secondary"
+              @click="closeWithdrawModal"
+              :disabled="loading"
+            >
+              Cancel
+            </button>
+            <button
+              class="btn btn-primary"
+              :disabled="
+                loading ||
+                withdrawAmount <= 0 ||
+                withdrawAmount > usdcConfidentialBalance
+              "
+              @click="handleWithdraw"
+            >
+              <span
+                v-if="withdrawProgress && showWithdrawModal"
+                class="btn-loading"
+              >
+                <span class="spinner-small"></span>
+                Processing...
+              </span>
+              <span v-else>
+                {{ loading ? 'Withdrawing...' : 'Withdraw' }}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
     </Teleport>
 
     <!-- transfer modal -->
     <Teleport to="body">
-    <div
-      v-if="showTransferModal"
-      class="modal-overlay"
-      @click.self="!loading && closeTransferModal()"
-    >
-      <div class="modal">
-        <div class="modal-header">
-          <h3>Transfer Privately</h3>
-          <button class="modal-close" @click="closeTransferModal" :disabled="loading">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-          </button>
-        </div>
-        <p class="modal-desc">
-          Send cUSDC privately to another wallet. The amount will be encrypted
-          and only visible to sender and recipient.
-        </p>
-
-        <div class="modal-token-info">
-          <span class="token-icon usdc">$</span>
-          <span class="token-label">cUSDC</span>
-          <span class="available-balance mono">
-            Available: {{ formatBalance(usdcConfidentialBalance, 2) }}
-          </span>
-        </div>
-
-        <div class="input-group">
-          <label>Recipient Address</label>
-          <input
-            v-model="transferRecipient"
-            type="text"
-            placeholder="Enter Solana wallet address"
-            class="recipient-input"
-            :disabled="loading"
-          />
-        </div>
-
-        <div class="input-group">
-          <label>Amount</label>
-          <input
-            v-model.number="transferAmount"
-            type="number"
-            :max="usdcConfidentialBalance"
-            min="0"
-            step="0.01"
-            placeholder="0.00"
-            :disabled="loading"
-          />
-          <button
-            class="max-btn"
-            @click="transferAmount = usdcConfidentialBalance"
-            :disabled="loading"
-          >
-            MAX
-          </button>
-        </div>
-
-        <div class="input-group">
-          <label>Memo <span class="optional-label">(optional)</span></label>
-          <input
-            v-model="transferMemo"
-            type="text"
-            placeholder="Add a note or reference"
-            class="memo-input"
-            :disabled="loading"
-            maxlength="100"
-          />
-        </div>
-
-        <!-- Transfer progress indicator -->
-        <div v-if="withdrawProgress && showTransferModal" class="withdraw-progress transfer-progress">
-          <div class="progress-header">
-            <span class="progress-title">Processing Transfer</span>
-            <span class="progress-step"
-              >Step {{ withdrawProgress.step }}/{{
-                withdrawProgress.totalSteps
-              }}</span
+      <div
+        v-if="showTransferModal"
+        class="modal-overlay"
+        @click.self="!loading && closeTransferModal()"
+      >
+        <div class="modal">
+          <div class="modal-header">
+            <h3>Transfer Privately</h3>
+            <button
+              class="modal-close"
+              @click="closeTransferModal"
+              :disabled="loading"
             >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M18 6L6 18M6 6l12 12"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
           </div>
-          <div class="progress-bar">
-            <div
-              class="progress-fill"
-              :style="{
-                width: `${(withdrawProgress.step / withdrawProgress.totalSteps) * 100}%`,
-              }"
-            ></div>
-          </div>
-          <div class="progress-status">{{ withdrawProgress.currentStep }}</div>
-        </div>
+          <p class="modal-desc">
+            Send cUSDC privately to another wallet. The amount will be encrypted
+            and only visible to sender and recipient.
+          </p>
 
-        <div class="modal-actions">
-          <button
-            class="btn btn-secondary"
-            @click="closeTransferModal"
-            :disabled="loading"
-          >
-            Cancel
-          </button>
-          <button
-            class="btn btn-primary btn-transfer-confirm"
-            :disabled="
-              loading ||
-              transferAmount <= 0 ||
-              transferAmount > usdcConfidentialBalance ||
-              !transferRecipient
-            "
-            @click="handleTransfer"
-          >
-            <span v-if="withdrawProgress && showTransferModal" class="btn-loading">
-              <span class="spinner-small"></span>
-              Processing...
+          <div class="modal-token-info">
+            <span class="token-icon usdc">$</span>
+            <span class="token-label">cUSDC</span>
+            <span class="available-balance mono">
+              Available: {{ formatBalance(usdcConfidentialBalance, 2) }}
             </span>
-            <span v-else>
-              {{ loading ? 'Transferring...' : 'Transfer Privately' }}
-            </span>
-          </button>
+          </div>
+
+          <div class="input-group">
+            <label>Recipient Address</label>
+            <input
+              v-model="transferRecipient"
+              type="text"
+              placeholder="Enter Solana wallet address"
+              class="recipient-input"
+              :disabled="loading"
+            />
+          </div>
+
+          <div class="input-group">
+            <label>Amount</label>
+            <input
+              v-model.number="transferAmount"
+              type="number"
+              :max="usdcConfidentialBalance"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              :disabled="loading"
+            />
+            <button
+              class="max-btn"
+              @click="transferAmount = usdcConfidentialBalance"
+              :disabled="loading"
+            >
+              MAX
+            </button>
+          </div>
+
+          <div class="input-group">
+            <label>Memo <span class="optional-label">(optional)</span></label>
+            <input
+              v-model="transferMemo"
+              type="text"
+              placeholder="Add a note or reference"
+              class="memo-input"
+              :disabled="loading"
+              maxlength="100"
+            />
+          </div>
+
+          <!-- Transfer progress indicator -->
+          <div
+            v-if="withdrawProgress && showTransferModal"
+            class="withdraw-progress transfer-progress"
+          >
+            <div class="progress-header">
+              <span class="progress-title">Processing Transfer</span>
+              <span class="progress-step"
+                >Step {{ withdrawProgress.step }}/{{
+                  withdrawProgress.totalSteps
+                }}</span
+              >
+            </div>
+            <div class="progress-bar">
+              <div
+                class="progress-fill"
+                :style="{
+                  width: `${(withdrawProgress.step / withdrawProgress.totalSteps) * 100}%`,
+                }"
+              ></div>
+            </div>
+            <div class="progress-status">
+              {{ withdrawProgress.currentStep }}
+            </div>
+          </div>
+
+          <div class="modal-actions">
+            <button
+              class="btn btn-secondary"
+              @click="closeTransferModal"
+              :disabled="loading"
+            >
+              Cancel
+            </button>
+            <button
+              class="btn btn-primary btn-transfer-confirm"
+              :disabled="
+                loading ||
+                transferAmount <= 0 ||
+                transferAmount > usdcConfidentialBalance ||
+                !transferRecipient
+              "
+              @click="handleTransfer"
+            >
+              <span
+                v-if="withdrawProgress && showTransferModal"
+                class="btn-loading"
+              >
+                <span class="spinner-small"></span>
+                Processing...
+              </span>
+              <span v-else>
+                {{ loading ? 'Transferring...' : 'Transfer Privately' }}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
-    </div>
     </Teleport>
   </div>
 </template>
@@ -518,7 +619,9 @@ const {
 // Expose debug function globally for console access
 if (typeof window !== 'undefined') {
   (window as any).debugCheckRecipient = debugCheckRecipientAccount;
-  console.log('[CT] Debug: Call window.debugCheckRecipient("wallet_address") to check any account');
+  console.log(
+    '[CT] Debug: Call window.debugCheckRecipient("wallet_address") to check any account',
+  );
 }
 
 // Token type
@@ -552,7 +655,7 @@ const toast = useToast();
 
 // Explorer URL helper
 const getExplorerUrl = (signature: string) =>
-  `https://explorer.solana.com/tx/${signature}?cluster=custom&customUrl=http://127.0.0.1:8899`;
+  `https://explorer.solana.com/tx/${signature}?cluster=custom&customUrl=https://zk-edge.surfnet.dev:8899`;
 
 // Error info parsing - converts raw error messages to user-friendly format
 interface ErrorInfo {
@@ -568,7 +671,11 @@ const errorInfo = computed<ErrorInfo | null>(() => {
   const msg = error.value.toLowerCase();
 
   // Network/connection errors
-  if (msg.includes('network') || msg.includes('fetch') || msg.includes('connection')) {
+  if (
+    msg.includes('network') ||
+    msg.includes('fetch') ||
+    msg.includes('connection')
+  ) {
     return {
       title: 'Connection Error',
       message: 'Unable to connect to the network.',
@@ -578,7 +685,11 @@ const errorInfo = computed<ErrorInfo | null>(() => {
   }
 
   // Wallet rejected
-  if (msg.includes('rejected') || msg.includes('cancelled') || msg.includes('user denied')) {
+  if (
+    msg.includes('rejected') ||
+    msg.includes('cancelled') ||
+    msg.includes('user denied')
+  ) {
     return {
       title: 'Transaction Cancelled',
       message: 'You declined the transaction.',
@@ -1419,8 +1530,12 @@ onUnmounted(() => {
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .modal {
@@ -1653,8 +1768,12 @@ onUnmounted(() => {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* transfer button */

@@ -13,7 +13,13 @@
           <!-- status banner -->
           <div class="status-banner" :class="invoice.status">
             <span class="status-icon">
-              {{ invoice.status === 'paid' ? '&#x2713;' : invoice.status === 'overdue' ? '&#x26A0;' : '&#x23F3;' }}
+              {{
+                invoice.status === 'paid'
+                  ? '&#x2713;'
+                  : invoice.status === 'overdue'
+                    ? '&#x26A0;'
+                    : '&#x23F3;'
+              }}
             </span>
             <span class="status-text">{{ getStatusText(invoice.status) }}</span>
           </div>
@@ -22,7 +28,9 @@
           <div class="amount-section">
             <span class="amount-label">Amount</span>
             <div class="amount-display">
-              <span class="amount-value">${{ invoice.amount.toLocaleString() }}</span>
+              <span class="amount-value"
+                >${{ invoice.amount.toLocaleString() }}</span
+              >
               <span class="amount-token">USDC</span>
             </div>
           </div>
@@ -41,22 +49,31 @@
 
             <div class="detail-item">
               <span class="detail-label">From</span>
-              <span class="detail-value mono">{{ shortenAddress(invoice.sender) }}</span>
+              <span class="detail-value mono">{{
+                shortenAddress(invoice.sender)
+              }}</span>
             </div>
 
             <div class="detail-item">
               <span class="detail-label">To</span>
-              <span class="detail-value mono">{{ shortenAddress(invoice.recipient) }}</span>
+              <span class="detail-value mono">{{
+                shortenAddress(invoice.recipient)
+              }}</span>
             </div>
 
             <div class="detail-item">
               <span class="detail-label">Created</span>
-              <span class="detail-value">{{ formatDate(invoice.createdAt) }}</span>
+              <span class="detail-value">{{
+                formatDate(invoice.createdAt)
+              }}</span>
             </div>
 
             <div v-if="invoice.dueDate" class="detail-item">
               <span class="detail-label">Due Date</span>
-              <span class="detail-value" :class="{ overdue: invoice.status === 'overdue' }">
+              <span
+                class="detail-value"
+                :class="{ overdue: invoice.status === 'overdue' }"
+              >
                 {{ formatDate(invoice.dueDate) }}
               </span>
             </div>
@@ -84,17 +101,25 @@
           </div>
 
           <!-- payment proof data (if confidential payment) -->
-          <div v-if="invoice.paymentMethod === 'confidential' && invoice.paymentNonce" class="proof-data-section">
+          <div
+            v-if="
+              invoice.paymentMethod === 'confidential' && invoice.paymentNonce
+            "
+            class="proof-data-section"
+          >
             <h4 class="section-subtitle">Payment Proof Data</h4>
             <p class="proof-data-desc">
-              This data is used to generate ZK proofs about this payment. Keep the nonce private - only you can derive it.
+              This data is used to generate ZK proofs about this payment. Keep
+              the nonce private - only you can derive it.
             </p>
 
             <div class="proof-data-grid">
               <div class="proof-data-item">
                 <span class="detail-label">Payment Nonce</span>
                 <div class="proof-data-value mono">
-                  {{ invoice.paymentNonce.slice(0, 16) }}...{{ invoice.paymentNonce.slice(-8) }}
+                  {{ invoice.paymentNonce.slice(0, 16) }}...{{
+                    invoice.paymentNonce.slice(-8)
+                  }}
                   <button class="copy-btn-small" @click="copyNonce">
                     {{ copiedNonce ? '&#x2713;' : '&#x1F4CB;' }}
                   </button>
@@ -119,15 +144,24 @@
 
             <div v-if="invoice.proofAvailable" class="proof-available">
               <div class="proof-badge-large">
-                <svg class="proof-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                  <path d="M9 12l2 2 4-4"/>
+                <svg
+                  class="proof-icon"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="M9 12l2 2 4-4" />
                 </svg>
                 <span>Zero-Knowledge Receipt Available</span>
               </div>
 
               <p class="proof-description">
-                Generate privacy-preserving proofs about this payment without revealing sensitive details.
+                Generate privacy-preserving proofs about this payment without
+                revealing sensitive details.
               </p>
 
               <!-- disclosure options -->
@@ -135,30 +169,49 @@
                 <h4 class="options-title">What would you like to prove?</h4>
 
                 <label class="disclosure-option">
-                  <input type="checkbox" v-model="disclosureOptions.revealInvoiceId" />
+                  <input
+                    type="checkbox"
+                    v-model="disclosureOptions.revealInvoiceId"
+                  />
                   <span class="option-content">
                     <span class="option-title">Reveal Invoice ID</span>
-                    <span class="option-desc">Include invoice identifier in the proof (verifiers can see which invoice)</span>
+                    <span class="option-desc"
+                      >Include invoice identifier in the proof (verifiers can
+                      see which invoice)</span
+                    >
                   </span>
                 </label>
 
                 <label class="disclosure-option">
-                  <input type="checkbox" v-model="disclosureOptions.revealRecipient" />
+                  <input
+                    type="checkbox"
+                    v-model="disclosureOptions.revealRecipient"
+                  />
                   <span class="option-content">
                     <span class="option-title">Reveal Recipient</span>
-                    <span class="option-desc">Include recipient wallet in the proof</span>
+                    <span class="option-desc"
+                      >Include recipient wallet in the proof</span
+                    >
                   </span>
                 </label>
 
                 <label class="disclosure-option">
-                  <input type="checkbox" v-model="disclosureOptions.proveMinAmount" />
+                  <input
+                    type="checkbox"
+                    v-model="disclosureOptions.proveMinAmount"
+                  />
                   <span class="option-content">
                     <span class="option-title">Prove Minimum Amount</span>
-                    <span class="option-desc">Prove payment was at least a certain amount</span>
+                    <span class="option-desc"
+                      >Prove payment was at least a certain amount</span
+                    >
                   </span>
                 </label>
 
-                <div v-if="disclosureOptions.proveMinAmount" class="amount-input-row">
+                <div
+                  v-if="disclosureOptions.proveMinAmount"
+                  class="amount-input-row"
+                >
                   <label class="amount-label-inline">Min: $</label>
                   <input
                     type="number"
@@ -171,14 +224,22 @@
                 </div>
 
                 <label class="disclosure-option">
-                  <input type="checkbox" v-model="disclosureOptions.proveMaxAmount" />
+                  <input
+                    type="checkbox"
+                    v-model="disclosureOptions.proveMaxAmount"
+                  />
                   <span class="option-content">
                     <span class="option-title">Prove Maximum Amount</span>
-                    <span class="option-desc">Prove payment was at most a certain amount</span>
+                    <span class="option-desc"
+                      >Prove payment was at most a certain amount</span
+                    >
                   </span>
                 </label>
 
-                <div v-if="disclosureOptions.proveMaxAmount" class="amount-input-row">
+                <div
+                  v-if="disclosureOptions.proveMaxAmount"
+                  class="amount-input-row"
+                >
                   <label class="amount-label-inline">Max: $</label>
                   <input
                     type="number"
@@ -203,13 +264,21 @@
               </button>
 
               <!-- proof progress -->
-              <div v-if="generatingProof && zkProgress.step !== 'idle'" class="zk-progress">
+              <div
+                v-if="generatingProof && zkProgress.step !== 'idle'"
+                class="zk-progress"
+              >
                 <div class="zk-progress-step">{{ zkProgress.message }}</div>
-                <div class="zk-progress-hint">This may take 10-30 seconds...</div>
+                <div class="zk-progress-hint">
+                  This may take 10-30 seconds...
+                </div>
               </div>
 
               <!-- proof result -->
-              <div v-if="proofGenerated && generatedReceipt" class="proof-result">
+              <div
+                v-if="proofGenerated && generatedReceipt"
+                class="proof-result"
+              >
                 <div class="proof-success">
                   <span class="success-icon">&#x2713;</span>
                   <span>ZK Receipt Generated</span>
@@ -217,15 +286,21 @@
                 <div class="proof-info">
                   <div class="proof-info-item">
                     <span class="info-label">Invoice</span>
-                    <span class="info-value mono">{{ generatedReceipt.invoiceId.slice(0, 8) }}...</span>
+                    <span class="info-value mono"
+                      >{{ generatedReceipt.invoiceId.slice(0, 8) }}...</span
+                    >
                   </div>
                   <div class="proof-info-item">
                     <span class="info-label">Payment Ref</span>
-                    <span class="info-value mono">{{ generatedReceipt.paymentRef.slice(0, 16) }}...</span>
+                    <span class="info-value mono"
+                      >{{ generatedReceipt.paymentRef.slice(0, 16) }}...</span
+                    >
                   </div>
                   <div class="proof-info-item">
                     <span class="info-label">Created</span>
-                    <span class="info-value">{{ new Date(generatedReceipt.createdAt).toLocaleString() }}</span>
+                    <span class="info-value">{{
+                      new Date(generatedReceipt.createdAt).toLocaleString()
+                    }}</span>
                   </div>
                 </div>
 
@@ -233,16 +308,39 @@
                 <div class="disclosed-claims">
                   <span class="claims-title">Verifiable claims:</span>
                   <div class="claims-list">
-                    <span class="claim-badge" v-if="generatedReceipt.disclosure.revealInvoiceId">Invoice ID revealed</span>
-                    <span class="claim-badge" v-if="generatedReceipt.disclosure.revealRecipient">Recipient revealed</span>
-                    <span class="claim-badge" v-if="generatedReceipt.disclosure.minAmount">Amount &ge; ${{ generatedReceipt.disclosure.minAmount }}</span>
-                    <span class="claim-badge" v-if="generatedReceipt.disclosure.maxAmount">Amount &le; ${{ generatedReceipt.disclosure.maxAmount }}</span>
+                    <span
+                      class="claim-badge"
+                      v-if="generatedReceipt.disclosure.revealInvoiceId"
+                      >Invoice ID revealed</span
+                    >
+                    <span
+                      class="claim-badge"
+                      v-if="generatedReceipt.disclosure.revealRecipient"
+                      >Recipient revealed</span
+                    >
+                    <span
+                      class="claim-badge"
+                      v-if="generatedReceipt.disclosure.minAmount"
+                      >Amount &ge; ${{
+                        generatedReceipt.disclosure.minAmount
+                      }}</span
+                    >
+                    <span
+                      class="claim-badge"
+                      v-if="generatedReceipt.disclosure.maxAmount"
+                      >Amount &le; ${{
+                        generatedReceipt.disclosure.maxAmount
+                      }}</span
+                    >
                     <span class="claim-badge default">Valid payment proof</span>
                   </div>
                 </div>
 
                 <div class="proof-actions">
-                  <button class="action-btn primary" @click="handleDownloadProof">
+                  <button
+                    class="action-btn primary"
+                    @click="handleDownloadProof"
+                  >
                     Download Receipt
                   </button>
                   <button class="action-btn" @click="copyProof">
@@ -262,7 +360,10 @@
         </div>
 
         <!-- Payment Link Section (for sender when pending) -->
-        <div v-if="isSender && invoice.status === 'pending'" class="payment-link-section">
+        <div
+          v-if="isSender && invoice.status === 'pending'"
+          class="payment-link-section"
+        >
           <h3 class="section-title">Share Payment Link</h3>
           <p class="link-description">
             Share this link with the payer to request payment.
@@ -281,31 +382,63 @@
               @click="($event.target as HTMLInputElement).select()"
             />
             <button class="copy-link-btn" @click="copyPaymentLink">
-              <svg v-if="!copiedLink" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+              <svg
+                v-if="!copiedLink"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
               </svg>
-              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="20 6 9 17 4 12"/>
+              <svg
+                v-else
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <polyline points="20 6 9 17 4 12" />
               </svg>
             </button>
           </div>
 
           <div class="share-buttons">
             <button class="share-btn" @click="shareViaEmail">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-                <polyline points="22,6 12,13 2,6"/>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"
+                />
+                <polyline points="22,6 12,13 2,6" />
               </svg>
               Email
             </button>
             <button class="share-btn" @click="shareNative" v-if="canShare">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="18" cy="5" r="3"/>
-                <circle cx="6" cy="12" r="3"/>
-                <circle cx="18" cy="19" r="3"/>
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
               </svg>
               Share
             </button>
@@ -320,7 +453,10 @@
           <div class="payment-methods">
             <label
               class="payment-method"
-              :class="{ selected: paymentMethod === 'confidential', disabled: !canPayConfidential }"
+              :class="{
+                selected: paymentMethod === 'confidential',
+                disabled: !canPayConfidential,
+              }"
             >
               <input
                 type="radio"
@@ -331,39 +467,78 @@
               <div class="method-content">
                 <div class="method-header">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path d="M12 3L4 7v6c0 5.25 3.4 10.15 8 11 4.6-.85 8-5.75 8-11V7l-8-4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path
+                      d="M12 3L4 7v6c0 5.25 3.4 10.15 8 11 4.6-.85 8-5.75 8-11V7l-8-4z"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M9 12l2 2 4-4"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
                   </svg>
                   <span class="method-title">Pay Privately</span>
                   <span class="method-badge">Recommended</span>
                 </div>
-                <p class="method-desc">Amount stays hidden using zero-knowledge proofs</p>
+                <p class="method-desc">
+                  Amount stays hidden using zero-knowledge proofs
+                </p>
                 <div class="method-balance">
                   <span>Private Balance:</span>
                   <span class="mono">{{ formatBalance(ctBalance) }} cUSDC</span>
                 </div>
-                <div v-if="!canPayConfidential && ctCheckDone" class="method-warning">
-                  <span v-if="ctBalance < invoice.amount">Insufficient private balance</span>
-                  <span v-else-if="!recipientHasCT">Recipient hasn't enabled private transfers</span>
+                <div
+                  v-if="!canPayConfidential && ctCheckDone"
+                  class="method-warning"
+                >
+                  <span v-if="ctBalance < invoice.amount"
+                    >Insufficient private balance</span
+                  >
+                  <span v-else-if="!recipientHasCT"
+                    >Recipient hasn't enabled private transfers</span
+                  >
                   <span v-else>Enable confidential transfers first</span>
                 </div>
               </div>
             </label>
 
-            <label class="payment-method" :class="{ selected: paymentMethod === 'public' }">
+            <label
+              class="payment-method"
+              :class="{ selected: paymentMethod === 'public' }"
+            >
               <input type="radio" v-model="paymentMethod" value="public" />
               <div class="method-content">
                 <div class="method-header">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
-                    <path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    />
+                    <path
+                      d="M12 7v5l3 3"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
                   </svg>
                   <span class="method-title">Pay Publicly</span>
                 </div>
-                <p class="method-desc">Standard transfer visible on blockchain</p>
+                <p class="method-desc">
+                  Standard transfer visible on blockchain
+                </p>
                 <div class="method-balance">
                   <span>Public Balance:</span>
-                  <span class="mono">{{ formatBalance(publicBalance) }} cUSDC</span>
+                  <span class="mono"
+                    >{{ formatBalance(publicBalance) }} cUSDC</span
+                  >
                 </div>
               </div>
             </label>
@@ -373,10 +548,19 @@
           <div v-if="paymentProgress" class="payment-progress">
             <div class="progress-header">
               <span class="progress-title">Processing Payment</span>
-              <span class="progress-step">Step {{ paymentProgress.step }}/{{ paymentProgress.totalSteps }}</span>
+              <span class="progress-step"
+                >Step {{ paymentProgress.step }}/{{
+                  paymentProgress.totalSteps
+                }}</span
+              >
             </div>
             <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: `${(paymentProgress.step / paymentProgress.totalSteps) * 100}%` }"></div>
+              <div
+                class="progress-fill"
+                :style="{
+                  width: `${(paymentProgress.step / paymentProgress.totalSteps) * 100}%`,
+                }"
+              ></div>
             </div>
             <div class="progress-status">{{ paymentProgress.currentStep }}</div>
           </div>
@@ -393,7 +577,8 @@
               Processing...
             </span>
             <span v-else>
-              Pay ${{ invoice.amount.toLocaleString() }} {{ paymentMethod === 'confidential' ? 'Privately' : '' }}
+              Pay ${{ invoice.amount.toLocaleString() }}
+              {{ paymentMethod === 'confidential' ? 'Privately' : '' }}
             </span>
           </button>
         </div>
@@ -428,34 +613,44 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
-import QRCode from 'qrcode'
-import { type Invoice, type PayInvoiceInput, formatDate, useInvoices, generatePaymentRef, derivePaymentNonce } from '~/composables/useInvoices'
-import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer'
-import { useToast } from '~/composables/useToast'
-import { useZkReceipts, type ZkReceiptProof } from '~/composables/useZkReceipts'
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
+import QRCode from 'qrcode';
+import {
+  type Invoice,
+  type PayInvoiceInput,
+  formatDate,
+  useInvoices,
+  generatePaymentRef,
+  derivePaymentNonce,
+} from '~/composables/useInvoices';
+import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer';
+import { useToast } from '~/composables/useToast';
+import {
+  useZkReceipts,
+  type ZkReceiptProof,
+} from '~/composables/useZkReceipts';
 
 const props = defineProps<{
-  invoice: Invoice
-  walletAddress: string
-  wallet: any // Wallet adapter for signing
-  isOpen: boolean
-}>()
+  invoice: Invoice;
+  walletAddress: string;
+  wallet: any; // Wallet adapter for signing
+  isOpen: boolean;
+}>();
 
 const emit = defineEmits<{
-  (e: 'close'): void
-  (e: 'paid', invoiceId: string, payment: PayInvoiceInput): void
-}>()
+  (e: 'close'): void;
+  (e: 'paid', invoiceId: string, payment: PayInvoiceInput): void;
+}>();
 
-const { payInvoice } = useInvoices()
+const { payInvoice } = useInvoices();
 const {
   transferConfidential,
   getConfidentialBalance,
   getPublicBalance,
   checkRecipientHasCT,
   withdrawProgress,
-} = useConfidentialTransfer()
-const toast = useToast()
+} = useConfidentialTransfer();
+const toast = useToast();
 const {
   generateReceipt,
   verifyReceipt,
@@ -463,28 +658,28 @@ const {
   progress: zkProgress,
   loading: zkLoading,
   error: zkError,
-} = useZkReceipts()
+} = useZkReceipts();
 
 // Payment state
-const paying = ref(false)
-const paymentMethod = ref<'public' | 'confidential'>('confidential')
-const ctBalance = ref(0)
-const publicBalance = ref(0)
-const recipientHasCT = ref(false)
-const ctCheckDone = ref(false)
+const paying = ref(false);
+const paymentMethod = ref<'public' | 'confidential'>('confidential');
+const ctBalance = ref(0);
+const publicBalance = ref(0);
+const recipientHasCT = ref(false);
+const ctCheckDone = ref(false);
 
 // UI state
-const copiedTx = ref(false)
-const copiedProof = ref(false)
-const copiedNonce = ref(false)
-const copiedPaymentRef = ref(false)
-const copiedLink = ref(false)
-const generatedReceipt = ref<ZkReceiptProof | null>(null)
-const qrCanvas = ref<HTMLCanvasElement | null>(null)
+const copiedTx = ref(false);
+const copiedProof = ref(false);
+const copiedNonce = ref(false);
+const copiedPaymentRef = ref(false);
+const copiedLink = ref(false);
+const generatedReceipt = ref<ZkReceiptProof | null>(null);
+const qrCanvas = ref<HTMLCanvasElement | null>(null);
 
 // Computed from ZK composable
-const generatingProof = computed(() => zkLoading.value)
-const proofGenerated = computed(() => generatedReceipt.value !== null)
+const generatingProof = computed(() => zkLoading.value);
+const proofGenerated = computed(() => generatedReceipt.value !== null);
 
 const disclosureOptions = ref({
   revealInvoiceId: false,
@@ -493,173 +688,192 @@ const disclosureOptions = ref({
   proveMaxAmount: false,
   minAmount: 0,
   maxAmount: 0,
-})
+});
 
 // Payment progress (reuse withdrawProgress from CT composable)
 const paymentProgress = computed(() => {
-  if (!paying.value) return null
-  return withdrawProgress.value
-})
+  if (!paying.value) return null;
+  return withdrawProgress.value;
+});
 
 // check if user is the sender (business checking on payments)
-const isSender = computed(() => props.invoice.sender === props.walletAddress)
+const isSender = computed(() => props.invoice.sender === props.walletAddress);
 
 // check if user can pay this invoice
 const canPay = computed(() => {
-  return props.invoice.recipient === props.walletAddress && props.invoice.status === 'pending'
-})
+  return (
+    props.invoice.recipient === props.walletAddress &&
+    props.invoice.status === 'pending'
+  );
+});
 
 // Check if can pay with confidential transfer
 const canPayConfidential = computed(() => {
-  return ctBalance.value >= props.invoice.amount && recipientHasCT.value
-})
+  return ctBalance.value >= props.invoice.amount && recipientHasCT.value;
+});
 
 // Check if payment can be executed
 const canExecutePayment = computed(() => {
   if (paymentMethod.value === 'confidential') {
-    return canPayConfidential.value
+    return canPayConfidential.value;
   }
-  return publicBalance.value >= props.invoice.amount
-})
+  return publicBalance.value >= props.invoice.amount;
+});
 
 // payment link
 const paymentLink = computed(() => {
-  if (typeof window === 'undefined') return ''
-  return `${window.location.origin}/pay/${props.invoice.id}`
-})
+  if (typeof window === 'undefined') return '';
+  return `${window.location.origin}/pay/${props.invoice.id}`;
+});
 
 // can use native share API
 const canShare = computed(() => {
-  return typeof navigator !== 'undefined' && !!navigator.share
-})
+  return typeof navigator !== 'undefined' && !!navigator.share;
+});
 
 // check if any disclosure options are selected
 const hasSelectedOptions = computed(() => {
-  const opts = disclosureOptions.value
-  return opts.revealInvoiceId ||
+  const opts = disclosureOptions.value;
+  return (
+    opts.revealInvoiceId ||
     opts.revealRecipient ||
     opts.proveMinAmount ||
     opts.proveMaxAmount
-})
+  );
+});
 
 // Format balance helper
 function formatBalance(bal: number): string {
-  return bal.toFixed(2)
+  return bal.toFixed(2);
 }
 
 // Check balances and recipient CT status when modal opens
 async function checkPaymentCapabilities() {
-  if (!props.wallet || !canPay.value) return
+  if (!props.wallet || !canPay.value) return;
 
-  ctCheckDone.value = false
+  ctCheckDone.value = false;
 
   try {
     // Check our balances
     const [ctBal, pubBal] = await Promise.all([
       getConfidentialBalance(props.wallet, 'USDC'),
       getPublicBalance(props.wallet, 'USDC'),
-    ])
-    ctBalance.value = ctBal
-    publicBalance.value = pubBal
+    ]);
+    ctBalance.value = ctBal;
+    publicBalance.value = pubBal;
 
     // Check if recipient (invoice sender) has CT configured
-    recipientHasCT.value = await checkRecipientHasCT(props.invoice.sender)
-    console.log('[Invoice] Recipient has CT:', recipientHasCT.value)
+    recipientHasCT.value = await checkRecipientHasCT(props.invoice.sender);
+    console.log('[Invoice] Recipient has CT:', recipientHasCT.value);
   } catch (e) {
-    console.error('Failed to check payment capabilities:', e)
-    recipientHasCT.value = false
+    console.error('Failed to check payment capabilities:', e);
+    recipientHasCT.value = false;
   } finally {
-    ctCheckDone.value = true
+    ctCheckDone.value = true;
   }
 
   // Default to public if CT not available
   if (!canPayConfidential.value) {
-    paymentMethod.value = 'public'
+    paymentMethod.value = 'public';
   }
 }
 
 // Watch for modal open
-watch(() => props.isOpen, (isOpen) => {
-  if (isOpen) {
-    // generate QR code for payment link (if sender)
-    generateQR()
-    // check payment capabilities (if payer)
-    if (canPay.value) {
-      checkPaymentCapabilities()
+watch(
+  () => props.isOpen,
+  (isOpen) => {
+    if (isOpen) {
+      // generate QR code for payment link (if sender)
+      generateQR();
+      // check payment capabilities (if payer)
+      if (canPay.value) {
+        checkPaymentCapabilities();
+      }
     }
-  }
-}, { immediate: true })
+  },
+  { immediate: true },
+);
 
 function close() {
-  emit('close')
+  emit('close');
 }
 
 function getStatusText(status: string): string {
   switch (status) {
-    case 'paid': return 'Payment Completed'
-    case 'pending': return 'Payment Pending'
-    case 'overdue': return 'Payment Overdue'
-    case 'cancelled': return 'Invoice Cancelled'
-    default: return status
+    case 'paid':
+      return 'Payment Completed';
+    case 'pending':
+      return 'Payment Pending';
+    case 'overdue':
+      return 'Payment Overdue';
+    case 'cancelled':
+      return 'Invoice Cancelled';
+    default:
+      return status;
   }
 }
 
 function shortenAddress(address: string): string {
-  if (!address) return ''
-  return `${address.slice(0, 6)}...${address.slice(-4)}`
+  if (!address) return '';
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 async function handlePay() {
   if (!props.wallet) {
-    toast.error('Wallet Not Connected', { message: 'Please connect your wallet' })
-    return
+    toast.error('Wallet Not Connected', {
+      message: 'Please connect your wallet',
+    });
+    return;
   }
 
-  paying.value = true
+  paying.value = true;
 
   try {
-    let txSignature: string
-    let paymentNonce: string | undefined
-    let paymentRefHash: string | undefined
+    let txSignature: string;
+    let paymentNonce: string | undefined;
+    let paymentRefHash: string | undefined;
 
     if (paymentMethod.value === 'confidential') {
       // Derive deterministic payment nonce from wallet signature
       // This ensures: same wallet + same invoice = same nonce (reproducible)
-      paymentNonce = await derivePaymentNonce(props.wallet, props.invoice.id)
+      paymentNonce = await derivePaymentNonce(props.wallet, props.invoice.id);
       paymentRefHash = await generatePaymentRef(
         props.invoice.id,
         props.invoice.sender,
         props.invoice.recipient,
         props.invoice.amount,
-        paymentNonce
-      )
+        paymentNonce,
+      );
 
-      console.log('[Invoice] ============ PAYMENT DEBUG ============')
-      console.log('[Invoice] Payer (me):', props.walletAddress)
-      console.log('[Invoice] Payee (invoice.sender):', props.invoice.sender)
-      console.log('[Invoice] Invoice.recipient:', props.invoice.recipient)
-      console.log('[Invoice] Amount:', props.invoice.amount)
-      console.log('[Invoice] Nonce (deterministic):', paymentNonce.slice(0, 16) + '...')
-      console.log('[Invoice] Payment ref:', paymentRefHash)
-      console.log('[Invoice] ========================================')
+      console.log('[Invoice] ============ PAYMENT DEBUG ============');
+      console.log('[Invoice] Payer (me):', props.walletAddress);
+      console.log('[Invoice] Payee (invoice.sender):', props.invoice.sender);
+      console.log('[Invoice] Invoice.recipient:', props.invoice.recipient);
+      console.log('[Invoice] Amount:', props.invoice.amount);
+      console.log(
+        '[Invoice] Nonce (deterministic):',
+        paymentNonce.slice(0, 16) + '...',
+      );
+      console.log('[Invoice] Payment ref:', paymentRefHash);
+      console.log('[Invoice] ========================================');
 
       // Execute confidential transfer with payment ref as memo
       txSignature = await transferConfidential(
         props.wallet,
         props.invoice.sender, // Send to invoice creator
         props.invoice.amount,
-        paymentRefHash // Include payment reference as memo
-      )
+        paymentRefHash, // Include payment reference as memo
+      );
 
-      console.log('[Invoice] CT payment successful:', txSignature)
+      console.log('[Invoice] CT payment successful:', txSignature);
     } else {
       // Public transfer (mock for now - would use regular SPL transfer)
-      console.log('[Invoice] Paying with public transfer')
-      txSignature = 'public_tx_' + Math.random().toString(36).substring(2, 15)
+      console.log('[Invoice] Paying with public transfer');
+      txSignature = 'public_tx_' + Math.random().toString(36).substring(2, 15);
 
       // TODO: Implement actual public SPL transfer
       // For hackathon demo, we'll focus on CT payments
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      await new Promise((resolve) => setTimeout(resolve, 1500));
     }
 
     // Update invoice in database
@@ -668,85 +882,99 @@ async function handlePay() {
       paymentMethod: paymentMethod.value,
       paymentNonce,
       paymentRef: paymentRefHash,
-    }
+    };
 
-    const success = await payInvoice(props.invoice.id, payment)
+    const success = await payInvoice(props.invoice.id, payment);
 
     if (success) {
-      emit('paid', props.invoice.id, payment)
+      emit('paid', props.invoice.id, payment);
       toast.success(
-        paymentMethod.value === 'confidential' ? 'Private Payment Successful' : 'Payment Successful',
+        paymentMethod.value === 'confidential'
+          ? 'Private Payment Successful'
+          : 'Payment Successful',
         {
           message: `Paid $${props.invoice.amount}${paymentMethod.value === 'confidential' ? ' privately' : ''} - ZK receipt available`,
-          link: `https://explorer.solana.com/tx/${txSignature}?cluster=custom&customUrl=http://127.0.0.1:8899`,
+          link: `https://explorer.solana.com/tx/${txSignature}?cluster=custom&customUrl=https://zk-edge.surfnet.dev:8899`,
           linkText: 'View on Explorer',
-        }
-      )
+        },
+      );
     } else {
       toast.error('Failed to Update Invoice', {
         message: 'Payment was sent but invoice status could not be updated',
-      })
+      });
     }
   } catch (e: any) {
-    console.error('Payment error:', e)
+    console.error('Payment error:', e);
     toast.error('Payment Failed', {
       message: e.message || 'An error occurred. Please try again.',
-    })
+    });
   } finally {
-    paying.value = false
+    paying.value = false;
   }
 }
 
 function checkStatus() {
   // todo: implement actual status check from blockchain
-  alert(`Invoice Status: ${props.invoice.status.toUpperCase()}\n\nThis would check the on-chain status in production.`)
+  alert(
+    `Invoice Status: ${props.invoice.status.toUpperCase()}\n\nThis would check the on-chain status in production.`,
+  );
 }
 
 function viewOnExplorer() {
   // open solana explorer (local validator)
-  const url = `https://explorer.solana.com/tx/${props.invoice.txSignature}?cluster=custom&customUrl=http://127.0.0.1:8899`
-  window.open(url, '_blank')
+  const url = `https://explorer.solana.com/tx/${props.invoice.txSignature}?cluster=custom&customUrl=https://zk-edge.surfnet.dev:8899`;
+  window.open(url, '_blank');
 }
 
 async function copyTx() {
   if (props.invoice.txSignature) {
-    await navigator.clipboard.writeText(props.invoice.txSignature)
-    copiedTx.value = true
-    setTimeout(() => { copiedTx.value = false }, 2000)
+    await navigator.clipboard.writeText(props.invoice.txSignature);
+    copiedTx.value = true;
+    setTimeout(() => {
+      copiedTx.value = false;
+    }, 2000);
   }
 }
 
 async function copyNonce() {
   if (props.invoice.paymentNonce) {
-    await navigator.clipboard.writeText(props.invoice.paymentNonce)
-    copiedNonce.value = true
-    setTimeout(() => { copiedNonce.value = false }, 2000)
+    await navigator.clipboard.writeText(props.invoice.paymentNonce);
+    copiedNonce.value = true;
+    setTimeout(() => {
+      copiedNonce.value = false;
+    }, 2000);
   }
 }
 
 async function copyPaymentRef() {
   if (props.invoice.paymentRef) {
-    await navigator.clipboard.writeText(props.invoice.paymentRef)
-    copiedPaymentRef.value = true
-    setTimeout(() => { copiedPaymentRef.value = false }, 2000)
+    await navigator.clipboard.writeText(props.invoice.paymentRef);
+    copiedPaymentRef.value = true;
+    setTimeout(() => {
+      copiedPaymentRef.value = false;
+    }, 2000);
   }
 }
 
 async function copyPaymentLink() {
-  await navigator.clipboard.writeText(paymentLink.value)
-  copiedLink.value = true
-  toast.success('Link Copied', { message: 'Payment link copied to clipboard.' })
-  setTimeout(() => { copiedLink.value = false }, 2000)
+  await navigator.clipboard.writeText(paymentLink.value);
+  copiedLink.value = true;
+  toast.success('Link Copied', {
+    message: 'Payment link copied to clipboard.',
+  });
+  setTimeout(() => {
+    copiedLink.value = false;
+  }, 2000);
 }
 
 function shareViaEmail() {
-  const subject = encodeURIComponent(`Payment Request: ${props.invoice.title}`)
+  const subject = encodeURIComponent(`Payment Request: ${props.invoice.title}`);
   const body = encodeURIComponent(
     `You have a payment request for $${props.invoice.amount} USDC.\n\n` +
-    `Pay securely here: ${paymentLink.value}\n\n` +
-    `Powered by Veil - Private Payments on Solana`
-  )
-  window.open(`mailto:?subject=${subject}&body=${body}`, '_blank')
+      `Pay securely here: ${paymentLink.value}\n\n` +
+      `Powered by Veil - Private Payments on Solana`,
+  );
+  window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
 }
 
 async function shareNative() {
@@ -756,18 +984,22 @@ async function shareNative() {
         title: `Payment Request: ${props.invoice.title}`,
         text: `Pay $${props.invoice.amount} USDC securely`,
         url: paymentLink.value,
-      })
+      });
     } catch (e) {
       // user cancelled or share failed
-      console.log('Share cancelled')
+      console.log('Share cancelled');
     }
   }
 }
 
 // generate QR code when modal opens
 async function generateQR() {
-  await nextTick()
-  if (qrCanvas.value && props.invoice.status === 'pending' && props.invoice.sender === props.walletAddress) {
+  await nextTick();
+  if (
+    qrCanvas.value &&
+    props.invoice.status === 'pending' &&
+    props.invoice.sender === props.walletAddress
+  ) {
     try {
       await QRCode.toCanvas(qrCanvas.value, paymentLink.value, {
         width: 180,
@@ -776,65 +1008,73 @@ async function generateQR() {
           dark: '#0f172a',
           light: '#ffffff',
         },
-      })
+      });
     } catch (e) {
-      console.error('QR generation failed:', e)
+      console.error('QR generation failed:', e);
     }
   }
 }
 
 async function generateProof() {
   // build disclosure options for the circuit
-  const opts = disclosureOptions.value
+  const opts = disclosureOptions.value;
   const disclosure = {
     revealInvoiceId: opts.revealInvoiceId,
     revealRecipient: opts.revealRecipient,
     minAmount: opts.proveMinAmount ? opts.minAmount : undefined,
     maxAmount: opts.proveMaxAmount ? opts.maxAmount : undefined,
-  }
+  };
 
   // generate real ZK proof using NoirJS
-  const receipt = await generateReceipt(props.invoice, disclosure)
+  const receipt = await generateReceipt(props.invoice, disclosure);
 
   if (receipt) {
-    generatedReceipt.value = receipt
+    generatedReceipt.value = receipt;
     toast.success('ZK Proof Generated', {
       message: 'Your privacy-preserving receipt is ready to download or share.',
-    })
+    });
   } else {
     toast.error('Proof Generation Failed', {
-      message: zkError.value || 'Could not generate ZK proof. Please try again.',
-    })
+      message:
+        zkError.value || 'Could not generate ZK proof. Please try again.',
+    });
   }
 }
 
 async function copyProof() {
   if (generatedReceipt.value) {
-    await navigator.clipboard.writeText(generatedReceipt.value.serialized)
-    copiedProof.value = true
-    toast.success('Proof Copied', { message: 'Proof data copied to clipboard.' })
-    setTimeout(() => { copiedProof.value = false }, 2000)
+    await navigator.clipboard.writeText(generatedReceipt.value.serialized);
+    copiedProof.value = true;
+    toast.success('Proof Copied', {
+      message: 'Proof data copied to clipboard.',
+    });
+    setTimeout(() => {
+      copiedProof.value = false;
+    }, 2000);
   }
 }
 
 function handleDownloadProof() {
   if (generatedReceipt.value) {
-    downloadProof(generatedReceipt.value)
-    toast.success('Proof Downloaded', { message: 'ZK receipt saved as JSON file.' })
+    downloadProof(generatedReceipt.value);
+    toast.success('Proof Downloaded', {
+      message: 'ZK receipt saved as JSON file.',
+    });
   }
 }
 
 function shareProof() {
   if (generatedReceipt.value) {
     // Generate a shareable link (would normally save to DB and create URL)
-    const proofId = generatedReceipt.value.invoiceId.slice(0, 8)
-    const shareUrl = `${window.location.origin}/verify/${proofId}`
+    const proofId = generatedReceipt.value.invoiceId.slice(0, 8);
+    const shareUrl = `${window.location.origin}/verify/${proofId}`;
 
     // For now, copy to clipboard since we don't have backend storage yet
-    navigator.clipboard.writeText(shareUrl)
+    navigator.clipboard.writeText(shareUrl);
     toast.success('Share Link Copied', {
-      message: 'Verification link copied. Note: Full sharing requires backend integration.',
-    })
+      message:
+        'Verification link copied. Note: Full sharing requires backend integration.',
+    });
   }
 }
 </script>
@@ -1020,7 +1260,11 @@ function shareProof() {
 .proof-data-section {
   margin-bottom: 1.5rem;
   padding: 1rem;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.05) 0%,
+    rgba(16, 185, 129, 0.05) 100%
+  );
   border: 1px solid rgba(99, 102, 241, 0.15);
   border-radius: 12px;
 }
@@ -1140,7 +1384,7 @@ function shareProof() {
   background: rgba(15, 23, 42, 0.03);
 }
 
-.disclosure-option input[type="checkbox"] {
+.disclosure-option input[type='checkbox'] {
   appearance: none;
   -webkit-appearance: none;
   box-sizing: border-box;
@@ -1157,12 +1401,12 @@ function shareProof() {
   transition: all 0.15s;
 }
 
-.disclosure-option input[type="checkbox"]:checked {
+.disclosure-option input[type='checkbox']:checked {
   border-color: #10b981;
   background: #10b981;
 }
 
-.disclosure-option input[type="checkbox"]:checked::after {
+.disclosure-option input[type='checkbox']:checked::after {
   content: '';
   position: absolute;
   top: 2px;
@@ -1439,7 +1683,11 @@ function shareProof() {
 
 /* Payment Section */
 .payment-section {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(99, 102, 241, 0.05) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.05) 0%,
+    rgba(99, 102, 241, 0.05) 100%
+  );
   border: 1px solid rgba(16, 185, 129, 0.15);
   border-radius: 16px;
   padding: 1.25rem;
@@ -1484,7 +1732,7 @@ function shareProof() {
   cursor: not-allowed;
 }
 
-.payment-method input[type="radio"] {
+.payment-method input[type='radio'] {
   appearance: none;
   -webkit-appearance: none;
   box-sizing: border-box;
@@ -1503,12 +1751,12 @@ function shareProof() {
   transition: all 0.15s;
 }
 
-.payment-method input[type="radio"]:checked {
+.payment-method input[type='radio']:checked {
   border-color: #10b981;
   background: #10b981;
 }
 
-.payment-method input[type="radio"]:checked::after {
+.payment-method input[type='radio']:checked::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -1520,7 +1768,7 @@ function shareProof() {
   border-radius: 50%;
 }
 
-.payment-method input[type="radio"]:disabled {
+.payment-method input[type='radio']:disabled {
   border-color: #e5e7eb;
   cursor: not-allowed;
 }
@@ -1692,13 +1940,21 @@ function shareProof() {
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Payment Link Section */
 .payment-link-section {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.05) 0%,
+    rgba(6, 182, 212, 0.05) 100%
+  );
   border: 1px solid rgba(99, 102, 241, 0.15);
   border-radius: 16px;
   padding: 1.25rem;

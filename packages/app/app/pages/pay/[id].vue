@@ -6,13 +6,21 @@
         <NuxtLink to="/" class="logo-link">
           <div class="logo-icon">
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="8" fill="url(#logo-grad)"/>
-              <path d="M16 6L22 12L16 18L10 12L16 6Z" fill="white" fill-opacity="0.9"/>
-              <path d="M16 14L22 20L16 26L10 20L16 14Z" fill="white" fill-opacity="0.6"/>
+              <rect width="32" height="32" rx="8" fill="url(#logo-grad)" />
+              <path
+                d="M16 6L22 12L16 18L10 12L16 6Z"
+                fill="white"
+                fill-opacity="0.9"
+              />
+              <path
+                d="M16 14L22 20L16 26L10 20L16 14Z"
+                fill="white"
+                fill-opacity="0.6"
+              />
               <defs>
                 <linearGradient id="logo-grad" x1="0" y1="0" x2="32" y2="32">
-                  <stop stop-color="#10b981"/>
-                  <stop offset="1" stop-color="#059669"/>
+                  <stop stop-color="#10b981" />
+                  <stop offset="1" stop-color="#059669" />
                 </linearGradient>
               </defs>
             </svg>
@@ -30,10 +38,17 @@
       <!-- Error State -->
       <div v-else-if="error" class="error-state">
         <div class="error-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
         </div>
         <h2>Invoice Not Found</h2>
@@ -46,22 +61,36 @@
         <!-- Already Paid -->
         <div v-if="invoice.status === 'paid'" class="paid-state">
           <div class="paid-icon">
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
+            <svg
+              width="64"
+              height="64"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
           </div>
           <h2>Already Paid</h2>
-          <p>This invoice was paid on {{ invoice.paidAt ? formatDate(invoice.paidAt) : 'Unknown' }}</p>
+          <p>
+            This invoice was paid on
+            {{ invoice.paidAt ? formatDate(invoice.paidAt) : 'Unknown' }}
+          </p>
           <div class="paid-details">
             <div class="detail-row">
               <span class="detail-label">Amount</span>
-              <span class="detail-value">${{ invoice.amount.toLocaleString() }} USDC</span>
+              <span class="detail-value"
+                >${{ invoice.amount.toLocaleString() }} USDC</span
+              >
             </div>
             <div v-if="invoice.txSignature" class="detail-row">
               <span class="detail-label">Transaction</span>
               <a :href="explorerUrl" target="_blank" class="tx-link mono">
-                {{ invoice.txSignature.slice(0, 8) }}...{{ invoice.txSignature.slice(-8) }}
+                {{ invoice.txSignature.slice(0, 8) }}...{{
+                  invoice.txSignature.slice(-8)
+                }}
               </a>
             </div>
           </div>
@@ -72,14 +101,25 @@
           <!-- Invoice Info -->
           <div class="invoice-info">
             <div class="invoice-badge">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"
+                />
+                <polyline points="14 2 14 8 20 8" />
               </svg>
               <span>Invoice</span>
             </div>
             <h1 class="invoice-title">{{ invoice.title }}</h1>
-            <p v-if="invoice.description" class="invoice-desc">{{ invoice.description }}</p>
+            <p v-if="invoice.description" class="invoice-desc">
+              {{ invoice.description }}
+            </p>
           </div>
 
           <!-- Amount -->
@@ -95,27 +135,53 @@
           <!-- Recipient Info -->
           <div class="recipient-info">
             <span class="recipient-label">Pay to</span>
-            <span class="recipient-address mono">{{ shortenAddress(invoice.sender) }}</span>
+            <span class="recipient-address mono">{{
+              shortenAddress(invoice.sender)
+            }}</span>
           </div>
 
           <!-- Due Date -->
-          <div v-if="invoice.dueDate" class="due-date" :class="{ overdue: isOverdue }">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10"/>
-              <polyline points="12 6 12 12 16 14"/>
+          <div
+            v-if="invoice.dueDate"
+            class="due-date"
+            :class="{ overdue: isOverdue }"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
             </svg>
-            <span v-if="isOverdue">Overdue since {{ formatDate(invoice.dueDate) }}</span>
+            <span v-if="isOverdue"
+              >Overdue since {{ formatDate(invoice.dueDate) }}</span
+            >
             <span v-else>Due {{ formatDate(invoice.dueDate) }}</span>
           </div>
 
           <!-- Connect Wallet Section -->
           <div v-if="!connected" class="connect-section">
             <p class="connect-hint">Connect your wallet to pay this invoice</p>
-            <button v-if="walletReady" class="btn btn-primary btn-lg" @click="openWalletModal">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="2" y="4" width="20" height="16" rx="2"/>
-                <path d="M22 10H2"/>
-                <path d="M6 16h4"/>
+            <button
+              v-if="walletReady"
+              class="btn btn-primary btn-lg"
+              @click="openWalletModal"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <rect x="2" y="4" width="20" height="16" rx="2" />
+                <path d="M22 10H2" />
+                <path d="M6 16h4" />
               </svg>
               Connect Wallet
             </button>
@@ -131,7 +197,10 @@
             <div class="method-selection">
               <label
                 class="method-option"
-                :class="{ selected: paymentMethod === 'confidential', disabled: !canPayConfidential }"
+                :class="{
+                  selected: paymentMethod === 'confidential',
+                  disabled: !canPayConfidential,
+                }"
               >
                 <input
                   type="radio"
@@ -141,32 +210,57 @@
                 />
                 <div class="method-content">
                   <div class="method-header">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                     </svg>
                     <span class="method-title">Pay Privately</span>
                     <span class="method-badge">Recommended</span>
                   </div>
-                  <p class="method-desc">Amount hidden using confidential transfers</p>
+                  <p class="method-desc">
+                    Amount hidden using confidential transfers
+                  </p>
                   <div class="method-balance">
-                    Balance: <span class="mono">{{ formatBalance(ctBalance) }} cUSDC</span>
+                    Balance:
+                    <span class="mono"
+                      >{{ formatBalance(ctBalance) }} cUSDC</span
+                    >
                   </div>
                 </div>
               </label>
 
-              <label class="method-option" :class="{ selected: paymentMethod === 'public' }">
+              <label
+                class="method-option"
+                :class="{ selected: paymentMethod === 'public' }"
+              >
                 <input type="radio" v-model="paymentMethod" value="public" />
                 <div class="method-content">
                   <div class="method-header">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="10"/>
-                      <polyline points="12 6 12 12 16 14"/>
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <polyline points="12 6 12 12 16 14" />
                     </svg>
                     <span class="method-title">Pay Publicly</span>
                   </div>
                   <p class="method-desc">Standard transfer visible on chain</p>
                   <div class="method-balance">
-                    Balance: <span class="mono">{{ formatBalance(publicBalance) }} USDC</span>
+                    Balance:
+                    <span class="mono"
+                      >{{ formatBalance(publicBalance) }} USDC</span
+                    >
                   </div>
                 </div>
               </label>
@@ -176,12 +270,23 @@
             <div v-if="paymentProgress" class="payment-progress">
               <div class="progress-header">
                 <span>Processing Payment</span>
-                <span class="progress-step">{{ paymentProgress.step }}/{{ paymentProgress.totalSteps }}</span>
+                <span class="progress-step"
+                  >{{ paymentProgress.step }}/{{
+                    paymentProgress.totalSteps
+                  }}</span
+                >
               </div>
               <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: `${(paymentProgress.step / paymentProgress.totalSteps) * 100}%` }"></div>
+                <div
+                  class="progress-fill"
+                  :style="{
+                    width: `${(paymentProgress.step / paymentProgress.totalSteps) * 100}%`,
+                  }"
+                ></div>
               </div>
-              <div class="progress-status">{{ paymentProgress.currentStep }}</div>
+              <div class="progress-status">
+                {{ paymentProgress.currentStep }}
+              </div>
             </div>
 
             <!-- Pay Button -->
@@ -196,12 +301,17 @@
                 Processing...
               </span>
               <span v-else>
-                Pay ${{ invoice.amount.toLocaleString() }} {{ paymentMethod === 'confidential' ? 'Privately' : '' }}
+                Pay ${{ invoice.amount.toLocaleString() }}
+                {{ paymentMethod === 'confidential' ? 'Privately' : '' }}
               </span>
             </button>
 
             <p v-if="!canPay && !paying" class="insufficient-hint">
-              Insufficient {{ paymentMethod === 'confidential' ? 'private' : 'public' }} balance
+              Insufficient
+              {{
+                paymentMethod === 'confidential' ? 'private' : 'public'
+              }}
+              balance
             </p>
           </div>
         </div>
@@ -216,30 +326,54 @@
 
     <!-- Success Modal -->
     <Teleport to="body">
-      <div v-if="showSuccess" class="success-overlay" @click.self="closeSuccess">
+      <div
+        v-if="showSuccess"
+        class="success-overlay"
+        @click.self="closeSuccess"
+      >
         <div class="success-modal">
           <div class="success-icon">
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
-              <polyline points="22 4 12 14.01 9 11.01"/>
+            <svg
+              width="64"
+              height="64"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+              <polyline points="22 4 12 14.01 9 11.01" />
             </svg>
           </div>
           <h2>Payment Successful!</h2>
-          <p>Your {{ paymentMethod === 'confidential' ? 'private ' : '' }}payment has been sent.</p>
+          <p>
+            Your {{ paymentMethod === 'confidential' ? 'private ' : '' }}payment
+            has been sent.
+          </p>
           <div class="success-details">
             <div class="detail-row">
               <span>Amount</span>
-              <span class="mono">${{ invoice?.amount.toLocaleString() }} USDC</span>
+              <span class="mono"
+                >${{ invoice?.amount.toLocaleString() }} USDC</span
+              >
             </div>
             <div v-if="txSignature" class="detail-row">
               <span>Transaction</span>
-              <a :href="successExplorerUrl" target="_blank" class="tx-link mono">
+              <a
+                :href="successExplorerUrl"
+                target="_blank"
+                class="tx-link mono"
+              >
                 {{ txSignature.slice(0, 8) }}...{{ txSignature.slice(-8) }}
               </a>
             </div>
           </div>
           <div class="success-actions">
-            <a :href="successExplorerUrl" target="_blank" class="btn btn-secondary">
+            <a
+              :href="successExplorerUrl"
+              target="_blank"
+              class="btn btn-secondary"
+            >
               View on Explorer
             </a>
             <NuxtLink to="/dashboard" class="btn btn-primary">
@@ -252,14 +386,25 @@
 
     <!-- Wallet List Modal -->
     <Teleport to="body">
-      <div v-if="showWalletList" class="wallet-overlay" @click.self="showWalletList = false">
+      <div
+        v-if="showWalletList"
+        class="wallet-overlay"
+        @click.self="showWalletList = false"
+      >
         <div class="wallet-modal">
           <div class="wallet-modal-header">
             <h3>Connect Wallet</h3>
             <button class="close-btn" @click="showWalletList = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           </div>
@@ -277,7 +422,11 @@
                 class="wallet-icon"
               />
               <span class="wallet-name">{{ wallet.name }}</span>
-              <span v-if="wallet.readyState === 'Installed'" class="installed-badge">Installed</span>
+              <span
+                v-if="wallet.readyState === 'Installed'"
+                class="installed-badge"
+                >Installed</span
+              >
             </button>
             <p v-if="walletList.length === 0" class="no-wallets">
               No wallets found. Please install a Solana wallet.
@@ -290,14 +439,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import { useInvoices, formatDate, type Invoice, type PayInvoiceInput, generatePaymentRef, derivePaymentNonce } from '~/composables/useInvoices'
-import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer'
-import { useToast } from '~/composables/useToast'
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import {
+  useInvoices,
+  formatDate,
+  type Invoice,
+  type PayInvoiceInput,
+  generatePaymentRef,
+  derivePaymentNonce,
+} from '~/composables/useInvoices';
+import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer';
+import { useToast } from '~/composables/useToast';
 
-const route = useRoute()
-const { fetchInvoiceById, payInvoice, loading, error } = useInvoices()
+const route = useRoute();
+const { fetchInvoiceById, payInvoice, loading, error } = useInvoices();
 const {
   initializeMint,
   deriveElGamalKeypair,
@@ -305,144 +461,151 @@ const {
   getConfidentialBalance,
   getPublicBalance,
   withdrawProgress,
-} = useConfidentialTransfer()
-const toast = useToast()
+} = useConfidentialTransfer();
+const toast = useToast();
 
 // wallet state
-const walletReady = ref(false)
-const connected = ref(false)
-const publicKey = ref<any>(null)
-let walletComposable: any = null
-let walletSelect: (name: string) => void = () => {}
-let walletConnect: () => Promise<void> = async () => {}
-let walletDisconnect: () => Promise<void> = async () => {}
+const walletReady = ref(false);
+const connected = ref(false);
+const publicKey = ref<any>(null);
+let walletComposable: any = null;
+let walletSelect: (name: string) => void = () => {};
+let walletConnect: () => Promise<void> = async () => {};
+let walletDisconnect: () => Promise<void> = async () => {};
 
 function getWalletAdapter() {
-  return walletComposable?.wallet?.value?.adapter || null
+  return walletComposable?.wallet?.value?.adapter || null;
 }
 
-const invoice = ref<Invoice | null>(null)
-const paymentMethod = ref<'public' | 'confidential'>('confidential')
-const ctBalance = ref(0)
-const publicBalance = ref(0)
-const paying = ref(false)
-const showSuccess = ref(false)
-const txSignature = ref('')
-const showWalletList = ref(false)
-const walletList = ref<Array<{ name: string; icon: string; readyState: string }>>([])
+const invoice = ref<Invoice | null>(null);
+const paymentMethod = ref<'public' | 'confidential'>('confidential');
+const ctBalance = ref(0);
+const publicBalance = ref(0);
+const paying = ref(false);
+const showSuccess = ref(false);
+const txSignature = ref('');
+const showWalletList = ref(false);
+const walletList = ref<
+  Array<{ name: string; icon: string; readyState: string }>
+>([]);
 
-const walletAddress = computed(() => publicKey.value?.toBase58() || '')
+const walletAddress = computed(() => publicKey.value?.toBase58() || '');
 
 const isOverdue = computed(() => {
-  if (!invoice.value?.dueDate) return false
-  return invoice.value.dueDate < Date.now()
-})
+  if (!invoice.value?.dueDate) return false;
+  return invoice.value.dueDate < Date.now();
+});
 
 const canPayConfidential = computed(() => {
-  if (!invoice.value) return false
-  return ctBalance.value >= invoice.value.amount
-})
+  if (!invoice.value) return false;
+  return ctBalance.value >= invoice.value.amount;
+});
 
 const canPay = computed(() => {
-  if (!invoice.value) return false
+  if (!invoice.value) return false;
   if (paymentMethod.value === 'confidential') {
-    return ctBalance.value >= invoice.value.amount
+    return ctBalance.value >= invoice.value.amount;
   }
-  return publicBalance.value >= invoice.value.amount
-})
+  return publicBalance.value >= invoice.value.amount;
+});
 
 const paymentProgress = computed(() => {
-  if (!paying.value) return null
-  return withdrawProgress.value
-})
+  if (!paying.value) return null;
+  return withdrawProgress.value;
+});
 
 const explorerUrl = computed(() => {
-  if (!invoice.value?.txSignature) return ''
-  return `https://explorer.solana.com/tx/${invoice.value.txSignature}?cluster=custom&customUrl=http://127.0.0.1:8899`
-})
+  if (!invoice.value?.txSignature) return '';
+  return `https://explorer.solana.com/tx/${invoice.value.txSignature}?cluster=custom&customUrl=https://zk-edge.surfnet.dev:8899`;
+});
 
 const successExplorerUrl = computed(() => {
-  if (!txSignature.value) return ''
-  return `https://explorer.solana.com/tx/${txSignature.value}?cluster=custom&customUrl=http://127.0.0.1:8899`
-})
+  if (!txSignature.value) return '';
+  return `https://explorer.solana.com/tx/${txSignature.value}?cluster=custom&customUrl=https://zk-edge.surfnet.dev:8899`;
+});
 
 function shortenAddress(addr: string): string {
-  if (!addr) return ''
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+  if (!addr) return '';
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 }
 
 function formatBalance(bal: number): string {
-  return bal.toFixed(2)
+  return bal.toFixed(2);
 }
 
 function openWalletModal() {
-  showWalletList.value = true
+  showWalletList.value = true;
 }
 
 async function selectWallet(walletName: string) {
   try {
-    walletSelect(walletName)
-    await walletConnect()
-    showWalletList.value = false
+    walletSelect(walletName);
+    await walletConnect();
+    showWalletList.value = false;
   } catch (e) {
-    console.error('Failed to connect:', e)
+    console.error('Failed to connect:', e);
   }
 }
 
 async function loadBalances() {
-  const adapter = getWalletAdapter()
-  if (!connected.value || !adapter) return
+  const adapter = getWalletAdapter();
+  if (!connected.value || !adapter) return;
 
   try {
-    initializeMint()
-    await deriveElGamalKeypair(adapter)
+    initializeMint();
+    await deriveElGamalKeypair(adapter);
 
     const [ct, pub] = await Promise.all([
       getConfidentialBalance(adapter, 'USDC'),
       getPublicBalance(adapter, 'USDC'),
-    ])
-    ctBalance.value = ct
-    publicBalance.value = pub
+    ]);
+    ctBalance.value = ct;
+    publicBalance.value = pub;
 
-    if (!canPayConfidential.value && publicBalance.value >= (invoice.value?.amount || 0)) {
-      paymentMethod.value = 'public'
+    if (
+      !canPayConfidential.value &&
+      publicBalance.value >= (invoice.value?.amount || 0)
+    ) {
+      paymentMethod.value = 'public';
     }
   } catch (e: any) {
-    console.error('failed to load balances:', e)
-    toast.error('Failed to load balances', { message: e.message || 'Please try reconnecting your wallet' })
+    console.error('failed to load balances:', e);
+    toast.error('Failed to load balances', {
+      message: e.message || 'Please try reconnecting your wallet',
+    });
   }
 }
 
 async function handlePay() {
-  const adapter = getWalletAdapter()
-  if (!invoice.value || !adapter) return
+  const adapter = getWalletAdapter();
+  if (!invoice.value || !adapter) return;
 
-  paying.value = true
+  paying.value = true;
 
   try {
-    let sig: string
-    let paymentNonce: string | undefined
-    let paymentRefHash: string | undefined
+    let sig: string;
+    let paymentNonce: string | undefined;
+    let paymentRefHash: string | undefined;
 
     if (paymentMethod.value === 'confidential') {
-      paymentNonce = await derivePaymentNonce(adapter, invoice.value.id)
+      paymentNonce = await derivePaymentNonce(adapter, invoice.value.id);
       paymentRefHash = await generatePaymentRef(
         invoice.value.id,
         invoice.value.sender,
         invoice.value.recipient,
         invoice.value.amount,
-        paymentNonce
-      )
+        paymentNonce,
+      );
       sig = await transferConfidential(
         adapter,
         invoice.value.sender,
         invoice.value.amount,
-        paymentRefHash
-      )
+        paymentRefHash,
+      );
     } else {
       // mock public transfer
-      sig = 'public_' + Math.random().toString(36).substring(2, 15)
-      await new Promise(r => setTimeout(r, 1500))
+      sig = 'public_' + Math.random().toString(36).substring(2, 15);
+      await new Promise((r) => setTimeout(r, 1500));
     }
 
     const payment: PayInvoiceInput = {
@@ -450,45 +613,45 @@ async function handlePay() {
       paymentMethod: paymentMethod.value,
       paymentNonce,
       paymentRef: paymentRefHash,
-    }
+    };
 
-    const success = await payInvoice(invoice.value.id, payment)
+    const success = await payInvoice(invoice.value.id, payment);
 
     if (success) {
-      txSignature.value = sig
-      showSuccess.value = true
-      invoice.value = await fetchInvoiceById(invoice.value.id)
+      txSignature.value = sig;
+      showSuccess.value = true;
+      invoice.value = await fetchInvoiceById(invoice.value.id);
     } else {
-      toast.error('Payment recorded but invoice update failed')
+      toast.error('Payment recorded but invoice update failed');
     }
   } catch (e: any) {
-    console.error('payment error:', e)
-    toast.error('Payment Failed', { message: e.message || 'Please try again' })
+    console.error('payment error:', e);
+    toast.error('Payment Failed', { message: e.message || 'Please try again' });
   } finally {
-    paying.value = false
+    paying.value = false;
   }
 }
 
 function closeSuccess() {
-  showSuccess.value = false
+  showSuccess.value = false;
 }
 
 onMounted(async () => {
-  const invoiceId = route.params.id as string
+  const invoiceId = route.params.id as string;
   if (invoiceId) {
-    invoice.value = await fetchInvoiceById(invoiceId)
+    invoice.value = await fetchInvoiceById(invoiceId);
   }
 
   // dynamic import to avoid ssr issues
   try {
-    const { initWallet, useWallet } = await import('solana-wallets-vue')
+    const { initWallet, useWallet } = await import('solana-wallets-vue');
 
-    let wallet
-    let needsInit = false
+    let wallet;
+    let needsInit = false;
     try {
-      wallet = useWallet()
+      wallet = useWallet();
     } catch {
-      needsInit = true
+      needsInit = true;
     }
 
     if (needsInit) {
@@ -496,7 +659,7 @@ onMounted(async () => {
         PhantomWalletAdapter,
         SolflareWalletAdapter,
         CoinbaseWalletAdapter,
-      } = await import('@solana/wallet-adapter-wallets')
+      } = await import('@solana/wallet-adapter-wallets');
 
       initWallet({
         wallets: [
@@ -505,41 +668,55 @@ onMounted(async () => {
           new CoinbaseWalletAdapter(),
         ],
         autoConnect: false,
-      })
-      wallet = useWallet()
+      });
+      wallet = useWallet();
     }
 
-    const mapWallets = (rawWallets: any[]) => rawWallets.map(w => ({
-      name: w.adapter.name,
-      icon: w.adapter.icon,
-      readyState: w.readyState,
-    }))
+    const mapWallets = (rawWallets: any[]) =>
+      rawWallets.map((w) => ({
+        name: w.adapter.name,
+        icon: w.adapter.icon,
+        readyState: w.readyState,
+      }));
 
-    walletComposable = wallet
-    connected.value = wallet.connected.value
-    publicKey.value = wallet.publicKey.value
-    walletList.value = mapWallets(wallet.wallets.value || [])
+    walletComposable = wallet;
+    connected.value = wallet.connected.value;
+    publicKey.value = wallet.publicKey.value;
+    walletList.value = mapWallets(wallet.wallets.value || []);
 
-    watch(() => wallet.connected.value, (val) => {
-      connected.value = val
-      if (val) loadBalances()
-    })
-    watch(() => wallet.publicKey.value, (val) => { publicKey.value = val })
-    watch(() => wallet.wallets.value, (val) => { walletList.value = mapWallets(val || []) })
+    watch(
+      () => wallet.connected.value,
+      (val) => {
+        connected.value = val;
+        if (val) loadBalances();
+      },
+    );
+    watch(
+      () => wallet.publicKey.value,
+      (val) => {
+        publicKey.value = val;
+      },
+    );
+    watch(
+      () => wallet.wallets.value,
+      (val) => {
+        walletList.value = mapWallets(val || []);
+      },
+    );
 
-    walletSelect = wallet.select
-    walletConnect = wallet.connect
-    walletDisconnect = wallet.disconnect
+    walletSelect = wallet.select;
+    walletConnect = wallet.connect;
+    walletDisconnect = wallet.disconnect;
 
     if (wallet.connected.value) {
-      await loadBalances()
+      await loadBalances();
     }
   } catch (e) {
-    console.error('failed to initialize wallet:', e)
+    console.error('failed to initialize wallet:', e);
   } finally {
-    walletReady.value = true
+    walletReady.value = true;
   }
-})
+});
 </script>
 
 <style scoped>
@@ -595,7 +772,9 @@ onMounted(async () => {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-state p {
@@ -727,7 +906,11 @@ onMounted(async () => {
 .amount-display {
   text-align: center;
   padding: 1.5rem;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%);
+  background: linear-gradient(
+    135deg,
+    rgba(16, 185, 129, 0.05) 0%,
+    rgba(6, 182, 212, 0.05) 100%
+  );
   border-radius: 16px;
   margin-bottom: 1.5rem;
 }
@@ -861,7 +1044,7 @@ onMounted(async () => {
   cursor: not-allowed;
 }
 
-.method-option input[type="radio"] {
+.method-option input[type='radio'] {
   appearance: none;
   -webkit-appearance: none;
   box-sizing: border-box;
@@ -880,12 +1063,12 @@ onMounted(async () => {
   transition: all 0.15s;
 }
 
-.method-option input[type="radio"]:checked {
+.method-option input[type='radio']:checked {
   border-color: #10b981;
   background: #10b981;
 }
 
-.method-option input[type="radio"]:checked::after {
+.method-option input[type='radio']:checked::after {
   content: '';
   position: absolute;
   top: 50%;
@@ -897,7 +1080,7 @@ onMounted(async () => {
   border-radius: 50%;
 }
 
-.method-option input[type="radio"]:disabled {
+.method-option input[type='radio']:disabled {
   border-color: #e5e7eb;
   cursor: not-allowed;
 }

@@ -11,8 +11,8 @@ import {
 /* const RPC_URL = 'https://zk-edge.surfnet.dev:8899';
 const WS_URL = 'wss://zk-edge.surfnet.dev:8900'; */
 
-const RPC_URL = 'http://127.0.0.1:8899';
-const WS_URL = 'ws://127.0.0.1:8900';
+const RPC_URL = 'https://zk-edge.surfnet.dev:8899';
+const WS_URL = 'wss://zk-edge.surfnet.dev:8900';
 
 // create RPC client
 const rpc = createSolanaRpc(RPC_URL);

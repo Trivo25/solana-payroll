@@ -41,8 +41,8 @@ import { RistrettoPoint } from '@noble/curves/ed25519';
 // CONFIGURATION - ZK-Edge Cluster
 // ============================================
 
-const RPC_URL = 'http://127.0.0.1:8899';
-const WS_URL = 'ws://127.0.0.1:8900';
+const RPC_URL = 'https://zk-edge.surfnet.dev:8899';
+const WS_URL = 'wss://zk-edge.surfnet.dev:8900';
 
 const DECIMALS = 9;
 const MINT_AMOUNT = 1_000_000_000n; // 1 token with 9 decimals

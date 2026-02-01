@@ -16,13 +16,21 @@
         <header class="header">
           <div class="logo">
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <rect width="32" height="32" rx="8" fill="url(#logo-grad)"/>
-              <path d="M16 6L22 12L16 18L10 12L16 6Z" fill="white" fill-opacity="0.9"/>
-              <path d="M16 14L22 20L16 26L10 20L16 14Z" fill="white" fill-opacity="0.6"/>
+              <rect width="32" height="32" rx="8" fill="url(#logo-grad)" />
+              <path
+                d="M16 6L22 12L16 18L10 12L16 6Z"
+                fill="white"
+                fill-opacity="0.9"
+              />
+              <path
+                d="M16 14L22 20L16 26L10 20L16 14Z"
+                fill="white"
+                fill-opacity="0.6"
+              />
               <defs>
                 <linearGradient id="logo-grad" x1="0" y1="0" x2="32" y2="32">
-                  <stop stop-color="#10b981"/>
-                  <stop offset="1" stop-color="#059669"/>
+                  <stop stop-color="#10b981" />
+                  <stop offset="1" stop-color="#059669" />
                 </linearGradient>
               </defs>
             </svg>
@@ -33,7 +41,9 @@
               <template v-if="connected">
                 <div class="wallet-address">
                   <span class="address-dot"></span>
-                  <span class="mono">{{ shortenAddress(publicKey?.toBase58() || '') }}</span>
+                  <span class="mono">{{
+                    shortenAddress(publicKey?.toBase58() || '')
+                  }}</span>
                 </div>
                 <button class="btn btn-danger btn-sm" @click="disconnect">
                   Disconnect
@@ -71,9 +81,26 @@
                   </div>
                   <div class="profile-picture-overlay">
                     <span v-if="uploadingPicture" class="spinner"></span>
-                    <svg v-else width="20" height="20" viewBox="0 0 20 20" fill="none">
-                      <path d="M4 16L16 16" stroke="white" stroke-width="2" stroke-linecap="round"/>
-                      <path d="M10 12V4M10 4L7 7M10 4L13 7" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <svg
+                      v-else
+                      width="20"
+                      height="20"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                    >
+                      <path
+                        d="M4 16L16 16"
+                        stroke="white"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                      />
+                      <path
+                        d="M10 12V4M10 4L7 7M10 4L13 7"
+                        stroke="white"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
                     </svg>
                   </div>
                   <input
@@ -104,7 +131,11 @@
                   </div>
                   <div class="account-badge" :class="account.account_type">
                     <span class="badge-dot"></span>
-                    {{ account.account_type === 'employer' ? 'Employer / Business' : 'Employee / Freelancer' }}
+                    {{
+                      account.account_type === 'employer'
+                        ? 'Employer / Business'
+                        : 'Employee / Freelancer'
+                    }}
                   </div>
                 </div>
               </div>
@@ -126,7 +157,12 @@
             <div class="modal-content">
               <button class="modal-close" @click="showQRModal = false">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                  <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path
+                    d="M15 5L5 15M5 5L15 15"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
                 </svg>
               </button>
               <QRConnect
@@ -151,8 +187,21 @@
                 <span class="card-label">Wallet Balance</span>
                 <div class="card-icon">
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                    <rect x="2" y="4" width="16" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M14 10H14.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <rect
+                      x="2"
+                      y="4"
+                      width="16"
+                      height="12"
+                      rx="2"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                    />
+                    <path
+                      d="M14 10H14.01"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
                   </svg>
                 </div>
               </div>
@@ -162,8 +211,13 @@
                     <span>◎</span>
                   </div>
                   <div class="balance-info">
-                    <span v-if="balanceLoading" class="skeleton skeleton-inline"></span>
-                    <span v-else class="balance-amount mono">{{ formatBalance(balance) }}</span>
+                    <span
+                      v-if="balanceLoading"
+                      class="skeleton skeleton-inline"
+                    ></span>
+                    <span v-else class="balance-amount mono">{{
+                      formatBalance(balance)
+                    }}</span>
                     <span class="token-label">SOL</span>
                   </div>
                 </div>
@@ -172,8 +226,13 @@
                     <span>$</span>
                   </div>
                   <div class="balance-info">
-                    <span v-if="usdcLoading" class="skeleton skeleton-inline"></span>
-                    <span v-else class="balance-amount mono">{{ formatUsdcBalance(usdcBalance) }}</span>
+                    <span
+                      v-if="usdcLoading"
+                      class="skeleton skeleton-inline"
+                    ></span>
+                    <span v-else class="balance-amount mono">{{
+                      formatUsdcBalance(usdcBalance)
+                    }}</span>
                     <span class="token-label">USDC</span>
                   </div>
                 </div>
@@ -197,9 +256,17 @@
             <div class="section-header">
               <div class="section-header-left">
                 <h2 class="section-title">Invoices</h2>
-                <button class="btn btn-create-invoice" @click="showCreateInvoiceModal = true">
+                <button
+                  class="btn btn-create-invoice"
+                  @click="showCreateInvoiceModal = true"
+                >
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    <path
+                      d="M8 3v10M3 8h10"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
                   </svg>
                   Create Invoice
                 </button>
@@ -242,14 +309,35 @@
             <div v-else class="empty-state">
               <div class="empty-icon">
                 <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-                  <rect x="8" y="6" width="32" height="40" rx="4" stroke="currentColor" stroke-width="2"/>
-                  <path d="M16 18H32M16 26H28M16 34H24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <rect
+                    x="8"
+                    y="6"
+                    width="32"
+                    height="40"
+                    rx="4"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M16 18H32M16 26H28M16 34H24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
                 </svg>
               </div>
               <p>No invoices yet</p>
-              <button class="btn btn-create-invoice-empty" @click="showCreateInvoiceModal = true">
+              <button
+                class="btn btn-create-invoice-empty"
+                @click="showCreateInvoiceModal = true"
+              >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  <path
+                    d="M8 3v10M3 8h10"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
                 </svg>
                 Create your first invoice
               </button>
@@ -287,7 +375,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useSupabase, type UserAccount } from '~/composables/useSupabase';
-import { useInvoices, type Invoice, type PayInvoiceInput } from '~/composables/useInvoices';
+import {
+  useInvoices,
+  type Invoice,
+  type PayInvoiceInput,
+} from '~/composables/useInvoices';
 import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer';
 
 const connected = ref(false);
@@ -306,7 +398,7 @@ const accountLoading = ref(true);
 const uploadingPicture = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
 let walletDisconnect: () => Promise<void> = async () => {};
-const RPC_URL = 'http://127.0.0.1:8899';
+const RPC_URL = 'https://zk-edge.surfnet.dev:8899';
 
 const showQRModal = ref(false);
 const qrCodeUrl = ref('');
@@ -472,7 +564,8 @@ async function fetchUsdcBalance(pubkey: any) {
   usdcLoading.value = true;
   try {
     const { Connection, PublicKey } = await import('@solana/web3.js');
-    const { getAssociatedTokenAddress, getAccount } = await import('@solana/spl-token');
+    const { getAssociatedTokenAddress, getAccount } =
+      await import('@solana/spl-token');
     const connection = new Connection(RPC_URL);
     const mintPubkey = new PublicKey(USDC_MINT);
     const ataAddress = await getAssociatedTokenAddress(mintPubkey, pubkey);
@@ -520,7 +613,9 @@ async function fetchConfidentialBalance(pubkey: any) {
 
 async function handleQRConnect(scannedAddress: string) {
   console.log('connecting to:', scannedAddress);
-  alert(`Ready to connect with: ${scannedAddress}\n\nConnection feature coming soon!`);
+  alert(
+    `Ready to connect with: ${scannedAddress}\n\nConnection feature coming soon!`,
+  );
 }
 
 async function checkAccount(walletAddress: string) {
@@ -669,7 +764,11 @@ function shortenAddress(address: string): string {
 .aurora-1 {
   width: 50vw;
   height: 50vh;
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0.4) 0%, transparent 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(16, 185, 129, 0.4) 0%,
+    transparent 100%
+  );
   top: -20%;
   right: -10%;
   animation: aurora1 25s ease-in-out infinite;
@@ -678,20 +777,34 @@ function shortenAddress(address: string): string {
 .aurora-2 {
   width: 40vw;
   height: 40vh;
-  background: linear-gradient(180deg, rgba(6, 182, 212, 0.3) 0%, transparent 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(6, 182, 212, 0.3) 0%,
+    transparent 100%
+  );
   bottom: -15%;
   left: -10%;
   animation: aurora2 30s ease-in-out infinite;
 }
 
 @keyframes aurora1 {
-  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
-  50% { transform: translateY(-30px) rotate(3deg) scale(1.05); }
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translateY(-30px) rotate(3deg) scale(1.05);
+  }
 }
 
 @keyframes aurora2 {
-  0%, 100% { transform: translateX(0) rotate(0deg); }
-  50% { transform: translateX(40px) rotate(-3deg); }
+  0%,
+  100% {
+    transform: translateX(0) rotate(0deg);
+  }
+  50% {
+    transform: translateX(40px) rotate(-3deg);
+  }
 }
 
 .noise {
@@ -788,7 +901,12 @@ function shortenAddress(address: string): string {
 }
 
 .skeleton {
-  background: linear-gradient(90deg, rgba(15, 23, 42, 0.05) 0%, rgba(15, 23, 42, 0.1) 50%, rgba(15, 23, 42, 0.05) 100%);
+  background: linear-gradient(
+    90deg,
+    rgba(15, 23, 42, 0.05) 0%,
+    rgba(15, 23, 42, 0.1) 50%,
+    rgba(15, 23, 42, 0.05) 100%
+  );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
   border-radius: 8px;
@@ -812,8 +930,12 @@ function shortenAddress(address: string): string {
 }
 
 @keyframes skeleton-shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .welcome-content {
@@ -974,7 +1096,12 @@ function shortenAddress(address: string): string {
 .qr-shine {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, transparent 40%, rgba(255, 255, 255, 0.4) 50%, transparent 60%);
+  background: linear-gradient(
+    135deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 60%
+  );
   opacity: 0;
   transition: opacity 0.2s;
 }

@@ -9,8 +9,19 @@
         title="Clear history"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-          <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path
+            d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M10 11v6M14 11v6"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          />
         </svg>
       </button>
     </div>
@@ -18,8 +29,19 @@
     <div v-if="transactions.length === 0" class="empty-state">
       <div class="empty-icon">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            stroke-width="1.5"
+          />
+          <path
+            d="M12 6v6l4 2"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+          />
         </svg>
       </div>
       <p class="empty-title">No activity yet</p>
@@ -34,23 +56,95 @@
         :class="tx.type"
       >
         <div class="tx-icon" :class="tx.type">
-          <svg v-if="tx.type === 'deposit'" width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg
+            v-if="tx.type === 'deposit'"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <path
+              d="M12 5v14M5 12l7 7 7-7"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
-          <svg v-else-if="tx.type === 'apply'" width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-            <path d="M8 12l3 3 5-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg
+            v-else-if="tx.type === 'apply'"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M8 12l3 3 5-6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
-          <svg v-else-if="tx.type === 'withdraw'" width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <svg
+            v-else-if="tx.type === 'withdraw'"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <path
+              d="M12 19V5M5 12l7-7 7 7"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
-          <svg v-else-if="tx.type === 'transfer'" width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/>
-            <path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <svg
+            v-else-if="tx.type === 'transfer'"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+          >
+            <rect
+              x="5"
+              y="11"
+              width="14"
+              height="10"
+              rx="2"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M8 11V7a4 4 0 018 0v4"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
           </svg>
           <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
-            <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              stroke-width="2"
+            />
+            <path
+              d="M12 6v6l4 2"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
           </svg>
         </div>
         <div class="tx-details">
@@ -61,14 +155,26 @@
           {{ formatAmount(tx.type, tx.amount) }}
         </div>
         <a
-          :href="`https://explorer.solana.com/tx/${tx.signature}?cluster=custom&customUrl=http://127.0.0.1:8899`"
+          :href="`https://explorer.solana.com/tx/${tx.signature}?cluster=custom&customUrl=https://zk-edge.surfnet.dev:8899`"
           target="_blank"
           class="tx-link"
           title="View on Explorer"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M15 3h6v6M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path
+              d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M15 3h6v6M10 14L21 3"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
           </svg>
         </a>
       </div>
@@ -77,7 +183,10 @@
 </template>
 
 <script setup lang="ts">
-import { useConfidentialTransfer, type CTTransaction } from '~/composables/useConfidentialTransfer';
+import {
+  useConfidentialTransfer,
+  type CTTransaction,
+} from '~/composables/useConfidentialTransfer';
 
 const { transactions, clearTransactionHistory } = useConfidentialTransfer();
 
@@ -89,12 +198,18 @@ function clearHistory() {
 
 function formatType(type: CTTransaction['type']): string {
   switch (type) {
-    case 'deposit': return 'Deposit to Pending';
-    case 'apply': return 'Applied to Private';
-    case 'withdraw': return 'Withdraw to Public';
-    case 'transfer': return 'Private Transfer';
-    case 'mint': return 'Minted Tokens';
-    default: return type;
+    case 'deposit':
+      return 'Deposit to Pending';
+    case 'apply':
+      return 'Applied to Private';
+    case 'withdraw':
+      return 'Withdraw to Public';
+    case 'transfer':
+      return 'Private Transfer';
+    case 'mint':
+      return 'Minted Tokens';
+    default:
+      return type;
   }
 }
 
