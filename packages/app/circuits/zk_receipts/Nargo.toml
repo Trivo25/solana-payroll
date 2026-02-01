@@ -1,0 +1,6 @@
+[package]
+name = "zk_receipts"
+type = "bin"
+authors = [""]
+
+[dependencies]
