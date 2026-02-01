@@ -482,7 +482,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, watchEffect } from 'vue';
 import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer';
 import { useToast } from '~/composables/useToast';
 
@@ -972,7 +972,22 @@ watch(
   },
 );
 
+// sync with shared composable state (from SetupWizard or other sources)
+watchEffect(() => {
+  if (testMint.value && !isSetup.value) {
+    isSetup.value = true;
+  }
+  if (elGamalPublicKey.value && !isUsdcAccountConfigured.value) {
+    isUsdcAccountConfigured.value = true;
+    refreshBalances();
+  }
+});
+
 onMounted(() => {
+  // check if already set up via shared state
+  if (testMint.value) {
+    isSetup.value = true;
+  }
   checkSetup();
   if (props.wallet?.publicKey) {
     startPolling();

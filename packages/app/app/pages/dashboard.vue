@@ -137,6 +137,11 @@
           </div>
         </Teleport>
 
+        <!-- Setup Wizard -->
+        <ClientOnly>
+          <SetupWizard v-if="connected" :wallet="walletAdapter" />
+        </ClientOnly>
+
         <!-- Balance Cards -->
         <ClientOnly>
           <div v-if="connected" class="balance-cards">
