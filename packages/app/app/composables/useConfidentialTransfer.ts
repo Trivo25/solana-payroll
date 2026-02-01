@@ -132,6 +132,13 @@ function getMintKeypair(): Keypair {
   return Keypair.fromSecretKey(MINT_SECRET_KEY);
 }
 
+/**
+ * Get the deterministic mint address (without creating it)
+ */
+function getDeterministicMintAddress(): string {
+  return getMintKeypair().publicKey.toBase58();
+}
+
 
 // ============================================
 // Helper Functions
@@ -153,6 +160,16 @@ function getConnection(): Connection {
 // ============================================
 
 export function useConfidentialTransfer() {
+  /**
+   * Initialize the mint reference without creating it on-chain
+   * Use this when you just need to read balances (e.g., on payment pages)
+   */
+  function initializeMint(): string {
+    const mintAddress = getDeterministicMintAddress();
+    testMint.value = mintAddress;
+    return mintAddress;
+  }
+
   /**
    * Derive ElGamal Keypair deterministically from wallet signature
    * Same wallet = same signature = same keys (across browsers/sessions)
@@ -1849,6 +1866,7 @@ export function useConfidentialTransfer() {
     transactions,
 
     // Functions
+    initializeMint,
     deriveElGamalKeypair,
     setupTestMint,
     setupTokenAccount,
