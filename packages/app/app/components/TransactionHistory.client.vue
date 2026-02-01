@@ -8,12 +8,22 @@
         @click="clearHistory"
         title="Clear history"
       >
-        &#x1F5D1;
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
       </button>
     </div>
 
     <div v-if="transactions.length === 0" class="empty-state">
-      <span class="empty-icon">&#x1F4AD;</span>
+      <div class="empty-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M8 14s1.5 2 4 2 4-2 4-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="9" cy="9" r="1" fill="currentColor"/>
+          <circle cx="15" cy="9" r="1" fill="currentColor"/>
+        </svg>
+      </div>
       <p>No transactions yet</p>
     </div>
 
@@ -24,12 +34,25 @@
         class="transaction-item"
         :class="tx.type"
       >
-        <div class="tx-icon">
-          <span v-if="tx.type === 'deposit'">&#x2B07;</span>
-          <span v-else-if="tx.type === 'apply'">&#x2705;</span>
-          <span v-else-if="tx.type === 'withdraw'">&#x2B06;</span>
-          <span v-else-if="tx.type === 'transfer'">&#x1F512;</span>
-          <span v-else>&#x1F4B0;</span>
+        <div class="tx-icon" :class="tx.type">
+          <svg v-if="tx.type === 'deposit'" width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <svg v-else-if="tx.type === 'apply'" width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 12l3 3 5-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <svg v-else-if="tx.type === 'withdraw'" width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <svg v-else-if="tx.type === 'transfer'" width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
         </div>
         <div class="tx-details">
           <div class="tx-type">{{ formatType(tx.type) }}</div>
@@ -44,7 +67,10 @@
           class="tx-link"
           title="View on Explorer"
         >
-          &#x1F517;
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M15 3h6v6M10 14L21 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
         </a>
       </div>
     </div>
@@ -149,9 +175,10 @@ function formatTime(timestamp: number): string {
 }
 
 .empty-icon {
-  font-size: 2rem;
-  display: block;
+  display: flex;
+  justify-content: center;
   margin-bottom: 0.5rem;
+  color: var(--text-muted);
   opacity: 0.5;
 }
 
@@ -198,13 +225,35 @@ function formatTime(timestamp: number): string {
 }
 
 .tx-icon {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.875rem;
   flex-shrink: 0;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--text-secondary);
+}
+
+.tx-icon.deposit {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.tx-icon.apply {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.tx-icon.withdraw {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+}
+
+.tx-icon.transfer {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
 }
 
 .tx-details {

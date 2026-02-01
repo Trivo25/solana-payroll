@@ -2,7 +2,12 @@
   <div class="confidential-balance">
     <div class="balance-header">
       <div class="balance-label">Confidential Balance</div>
-      <span class="balance-icon">&#x1F6E1;</span>
+      <div class="balance-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M12 3L4 7v6c0 5.25 3.4 10.15 8 11 4.6-.85 8-5.75 8-11V7l-8-4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
     </div>
 
     <!-- not setup state -->
@@ -23,7 +28,12 @@
         <!-- unlock overlay when elgamal key not derived -->
         <div v-if="!elGamalPublicKey" class="unlock-overlay">
           <div class="unlock-content">
-            <div class="unlock-icon">&#x1F512;</div>
+            <div class="unlock-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/>
+                <path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
             <p class="unlock-text">Private balances are encrypted</p>
             <button
               class="btn btn-unlock"
@@ -72,7 +82,12 @@
                   </button>
                 </template>
                 <span v-else class="balance-value locked">
-                  <span class="lock-icon">&#x1F512;</span>
+                  <span class="lock-icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/>
+                      <path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                  </span>
                 </span>
               </div>
               <div class="balance-row confidential">
@@ -90,7 +105,12 @@
                   }}</span>
                 </template>
                 <span v-else class="balance-value locked">
-                  <span class="lock-icon">&#x1F512;</span>
+                  <span class="lock-icon">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                      <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="2"/>
+                      <path d="M8 11V7a4 4 0 018 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                  </span>
                 </span>
               </div>
             </div>
@@ -786,7 +806,7 @@ onUnmounted(() => {
 }
 
 .balance-icon {
-  font-size: 1.5rem;
+  color: var(--secondary);
 }
 
 /* setup section */
@@ -1011,7 +1031,9 @@ onUnmounted(() => {
 }
 
 .lock-icon {
-  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
   opacity: 0.6;
 }
 
@@ -1042,8 +1064,8 @@ onUnmounted(() => {
 }
 
 .unlock-content .unlock-icon {
-  font-size: 2rem;
   margin-bottom: 0.5rem;
+  color: var(--text-secondary);
 }
 
 .unlock-text {
