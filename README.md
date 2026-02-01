@@ -1,12 +1,14 @@
-# Private Payroll
+# Veil - Private Transactions on Solana
+
+> Your private financial layer on Solana. Like Wise, but on-chain and truly private.
+
+This project enables private transactions, payroll, and invoicing on Solana by combining Confidential Transfers for hidden payments with Noir-based zero-knowledge receipts for selective, verifiable disclosure.
 
 ### TypeScript Example
 
 I put together a TypeScript example that goes through the Confidential Transfer in TypeScript only which is accessible here: https://github.com/Trivo25/solana-confidential-transfer-typescript
 
 JavaScript/TypeScript examples are pretty bad, hence I opened this PR as well.
-
-> This project enables private payroll and invoicing on Solana by combining Confidential Transfers for hidden payments with Noir based zero-knowledge receipts for selective, verifiable disclosure.
 
 ## Problem
 
@@ -16,17 +18,19 @@ Similarly, the same applies to businesses. One of the main hurdles of using bloc
 
 Most on-chain payments are fully transparent by default. Anyone can see:
 
+- Payment amounts and recipients
 - Salaries and contractor payments
 - Company revenue and cash flow
 - Business relationships and payment patterns
 
-This makes blockchains unsuable (or very annoying) for:
+This makes blockchains unsuitable (or very annoying) for:
 
+- Personal transfers
 - Payroll
 - Invoices
 - Subscriptions
 - B2B payments
-- ..
+- Any financial activity requiring privacy
 
 For real businesses, this is not a nice to have - it's an actual blocker. But at the same time businesses need to inherit to tax laws and auditability from various parties. Businesses need:
 
@@ -36,29 +40,30 @@ For real businesses, this is not a nice to have - it's an actual blocker. But at
 
 Currently, the only sultion are to either use public blockchains or private but unverifiable web3 banking solutions.
 
-The goal of this submission is to: `Pay privately, but prove facts about the payment when needed.`
+The goal of this submission is to: `Transact privately, but prove facts about payments when needed.`
 
 ## Proposed Solution
 
-Private payments with cryptographic selective disclosure on Solana!
+Private transactions with cryptographic selective disclosure on Solana!
 
-I propose a privacy-first payroll and invoicing system built on two primitives:
+Veil is a privacy-first financial layer built on two primitives:
 
 - Solana Confidential Transfers
 - Zero-knowledge receipts using Noir
 
 Together they enable:
 
-- Private payments by default
-- Auditablility & verifiable disclosures
+- Private transactions by default
+- Auditability & verifiable disclosures
+- Programmable privacy
 
 without trusted intermediaries
 
-### Private payments
+### Private Transactions
 
-Payments are done using the SPL in order to ensure transfer amounts are encrypted, account balances are hidden but the network can still verify correctness of transfers. From the outside howver, observers (consensus, nodes, auditors, ..) can see that a transfer did indeed happen. But they cannot see payment amounts, salaries, revenue and more.
+Transactions are done using SPL Token-2022's Confidential Transfer extension to ensure transfer amounts are encrypted and account balances are hidden, while the network can still verify correctness of transfers. From the outside, observers (consensus, nodes, auditors, ..) can see that a transfer did happen. But they cannot see payment amounts, salaries, revenue and more.
 
-That way, we can have a system in which payroll, invoices, etc are done on-chain in a verifable way without leaking any sensitive private data.
+That way, we can have a system in which personal transfers, payroll, invoices, etc are done on-chain in a verifiable way without leaking any sensitive private data.
 
 ### Selective disclosure
 

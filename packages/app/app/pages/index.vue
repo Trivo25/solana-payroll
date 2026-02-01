@@ -66,23 +66,23 @@
 
         <h1 class="title">
           <span class="title-line">
-            <span class="word" v-for="(word, i) in ['Private', 'Payments.']" :key="i" :style="{ animationDelay: `${i * 0.1}s` }">{{ word }}&nbsp;</span>
+            <span class="word" v-for="(word, i) in ['Private', 'Transactions.']" :key="i" :style="{ animationDelay: `${i * 0.1}s` }">{{ word }}&nbsp;</span>
           </span>
           <span class="title-line title-line-2">
-            <span class="word" v-for="(word, i) in ['Provable', 'Receipts.']" :key="i" :style="{ animationDelay: `${0.2 + i * 0.1}s` }">{{ word }}&nbsp;</span>
+            <span class="word" v-for="(word, i) in ['Programmable', 'Privacy.']" :key="i" :style="{ animationDelay: `${0.2 + i * 0.1}s` }">{{ word }}&nbsp;</span>
           </span>
         </h1>
 
         <p class="description">
-          The first confidential payment app on Solana. Send money privately using
-          zero-knowledge proofs, then selectively reveal payment details when needed.
+          Your private financial layer on Solana. Send, receive, and automate transactions
+          with full confidentiality - like Wise, but on-chain and truly private.
         </p>
 
         <div class="cta-group">
           <NuxtLink to="/connect" class="btn btn-primary">
             <span class="btn-bg"></span>
             <span class="btn-content">
-              <span>Start Paying Privately</span>
+              <span>Get Started</span>
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                 <path d="M7 4L13 10L7 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
@@ -114,9 +114,9 @@
       <div class="section-container">
         <div class="section-header">
           <span class="section-eyebrow">Core Features</span>
-          <h2 class="section-title">Privacy Without Compromise</h2>
+          <h2 class="section-title">Your Private Financial Layer</h2>
           <p class="section-subtitle">
-            Full financial privacy with the flexibility to prove what you need, when you need it.
+            From simple transfers to automated payments - all with full confidentiality and programmable privacy controls.
           </p>
         </div>
 
@@ -205,8 +205,8 @@
             <div class="cta-orb cta-orb-2"></div>
           </div>
           <div class="cta-content">
-            <h2>Ready to Pay Privately?</h2>
-            <p>Connect your wallet and experience true financial privacy on Solana.</p>
+            <h2>Ready for Private Finance?</h2>
+            <p>Connect your wallet and take control of your financial privacy on Solana.</p>
             <NuxtLink to="/connect" class="btn btn-glow">
               <span class="btn-content">
                 <span>Launch Veil</span>
@@ -266,29 +266,29 @@ const stats = [
 
 const features = [
   {
+    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`,
+    title: 'Private Transfers',
+    description: 'Send and receive tokens without revealing amounts. Your financial activity stays invisible to the public.',
+  },
+  {
     icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`,
     title: 'Confidential Balances',
     description: 'Your token balances are encrypted on-chain using ElGamal encryption. Only you can see your true balance.',
   },
   {
-    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>`,
-    title: 'Private Transfers',
-    description: 'Send tokens to anyone without revealing the amount. Amounts are hidden inside encrypted ciphertexts.',
+    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+    title: 'Private Invoicing',
+    description: 'Create and pay invoices with confidential amounts. Link payments to invoices with cryptographic proofs.',
   },
   {
     icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`,
     title: 'Selective Disclosure',
-    description: 'Prove you paid someone, prove the amount was in a range, or prove the date - without revealing everything.',
+    description: 'Prove you paid someone, verify amounts are in range, or confirm dates - without revealing everything.',
   },
   {
-    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
-    title: 'ZK Receipts',
-    description: 'Generate cryptographic receipts for any payment. Perfect for expense reports, audits, or tax compliance.',
-  },
-  {
-    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>`,
-    title: 'P2P Payments',
-    description: 'Pay anyone with a Solana wallet. They receive encrypted tokens they can decrypt with their private key.',
+    icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+    title: 'Programmable Privacy',
+    description: 'Schedule recurring payments, set up automated transfers, and build private financial workflows.',
   },
   {
     icon: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`,
