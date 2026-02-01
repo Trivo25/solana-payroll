@@ -83,6 +83,36 @@
             </div>
           </div>
 
+          <!-- payment proof data (if confidential payment) -->
+          <div v-if="invoice.paymentMethod === 'confidential' && invoice.paymentNonce" class="proof-data-section">
+            <h4 class="section-subtitle">Payment Proof Data</h4>
+            <p class="proof-data-desc">
+              This data is used to generate ZK proofs about this payment. Keep the nonce private - only you can derive it.
+            </p>
+
+            <div class="proof-data-grid">
+              <div class="proof-data-item">
+                <span class="detail-label">Payment Nonce</span>
+                <div class="proof-data-value mono">
+                  {{ invoice.paymentNonce.slice(0, 16) }}...{{ invoice.paymentNonce.slice(-8) }}
+                  <button class="copy-btn-small" @click="copyNonce">
+                    {{ copiedNonce ? '&#x2713;' : '&#x1F4CB;' }}
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="invoice.paymentRef" class="proof-data-item">
+                <span class="detail-label">Payment Reference</span>
+                <div class="proof-data-value mono">
+                  {{ invoice.paymentRef }}
+                  <button class="copy-btn-small" @click="copyPaymentRef">
+                    {{ copiedPaymentRef ? '&#x2713;' : '&#x1F4CB;' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- zk receipt section -->
           <div v-if="invoice.status === 'paid'" class="zk-section">
             <h3 class="section-title">ZK Receipt & Selective Disclosure</h3>
@@ -284,7 +314,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { type Invoice, type PayInvoiceInput, formatDate, useInvoices, generatePaymentRef } from '~/composables/useInvoices'
+import { type Invoice, type PayInvoiceInput, formatDate, useInvoices, generatePaymentRef, derivePaymentNonce } from '~/composables/useInvoices'
 import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer'
 import { useToast } from '~/composables/useToast'
 
@@ -321,6 +351,8 @@ const ctCheckDone = ref(false)
 // UI state
 const copiedTx = ref(false)
 const copiedProof = ref(false)
+const copiedNonce = ref(false)
+const copiedPaymentRef = ref(false)
 const generatingProof = ref(false)
 const proofGenerated = ref(false)
 const proofHash = ref('')
@@ -440,8 +472,9 @@ async function handlePay() {
     let paymentRefHash: string | undefined
 
     if (paymentMethod.value === 'confidential') {
-      // Generate payment reference for linking
-      paymentNonce = crypto.randomUUID()
+      // Derive deterministic payment nonce from wallet signature
+      // This ensures: same wallet + same invoice = same nonce (reproducible)
+      paymentNonce = await derivePaymentNonce(props.wallet, props.invoice.id)
       paymentRefHash = await generatePaymentRef(
         props.invoice.id,
         props.invoice.sender,
@@ -455,6 +488,7 @@ async function handlePay() {
       console.log('[Invoice] Payee (invoice.sender):', props.invoice.sender)
       console.log('[Invoice] Invoice.recipient:', props.invoice.recipient)
       console.log('[Invoice] Amount:', props.invoice.amount)
+      console.log('[Invoice] Nonce (deterministic):', paymentNonce.slice(0, 16) + '...')
       console.log('[Invoice] Payment ref:', paymentRefHash)
       console.log('[Invoice] ========================================')
 
@@ -528,6 +562,22 @@ async function copyTx() {
     await navigator.clipboard.writeText(props.invoice.txSignature)
     copiedTx.value = true
     setTimeout(() => { copiedTx.value = false }, 2000)
+  }
+}
+
+async function copyNonce() {
+  if (props.invoice.paymentNonce) {
+    await navigator.clipboard.writeText(props.invoice.paymentNonce)
+    copiedNonce.value = true
+    setTimeout(() => { copiedNonce.value = false }, 2000)
+  }
+}
+
+async function copyPaymentRef() {
+  if (props.invoice.paymentRef) {
+    await navigator.clipboard.writeText(props.invoice.paymentRef)
+    copiedPaymentRef.value = true
+    setTimeout(() => { copiedPaymentRef.value = false }, 2000)
   }
 }
 
@@ -731,6 +781,53 @@ function shareProof() {
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
   margin-top: 0.25rem;
+  word-break: break-all;
+}
+
+/* Proof data section */
+.proof-data-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 12px;
+}
+
+.section-subtitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.5rem 0;
+}
+
+.proof-data-desc {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.proof-data-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.proof-data-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.proof-data-value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.7rem;
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
   word-break: break-all;
 }
 

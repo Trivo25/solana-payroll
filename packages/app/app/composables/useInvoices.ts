@@ -379,3 +379,41 @@ export async function generatePaymentRef(
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }
+
+/**
+ * Derive a deterministic payment nonce from wallet signature.
+ *
+ * The nonce is derived by signing a message containing the invoice ID,
+ * then hashing the signature. This ensures:
+ * - Same wallet + same invoice = same nonce (deterministic)
+ * - Only the payer can derive it (requires wallet signature)
+ * - Different nonce per invoice (invoice ID is included)
+ * - No storage needed - can be re-derived anytime
+ *
+ * Solana uses Ed25519 signatures which are deterministic:
+ * same private key + same message = same signature
+ */
+export async function derivePaymentNonce(
+  wallet: { signMessage?: (message: Uint8Array) => Promise<Uint8Array> },
+  invoiceId: string
+): Promise<string> {
+  if (!wallet.signMessage) {
+    throw new Error('Wallet does not support message signing');
+  }
+
+  // Create a unique message for this invoice
+  const message = `Veil Payment Nonce v1: ${invoiceId}`;
+  const messageBytes = new TextEncoder().encode(message);
+
+  // Sign the message - Ed25519 signatures are deterministic
+  const signature = await wallet.signMessage(messageBytes);
+
+  // Hash the signature to get a fixed-length nonce
+  // Note: Create a new Uint8Array to ensure proper buffer type for crypto.subtle
+  const signatureBytes = new Uint8Array(signature);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', signatureBytes);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+
+  // Return as hex string (64 chars = 32 bytes)
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
