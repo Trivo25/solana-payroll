@@ -1,27 +1,42 @@
 /**
  * ElGamal Key Manager
  *
- * Derives ElGamal keypair and AES key from wallet signature.
- * Keys are deterministically derived so the same wallet always gets the same keys.
+ * Derives ElGamal keypair and AES key DETERMINISTICALLY from wallet signature.
+ * The same wallet will always produce the same keys.
+ *
+ * How it works:
+ * 1. Wallet signs a fixed message
+ * 2. Signature is hashed with SHA-512 to get 64 bytes of entropy
+ * 3. For ElGamal: We ensure the 32 bytes form a valid Ristretto scalar (< curve order)
+ * 4. For AES: We take 16 bytes directly
  */
 
 import type { WalletAdapter } from '@solana/wallet-adapter-base';
 import { sha512 } from '@noble/hashes/sha512';
 import { loadZkSdk, type ZkSdkModule } from './zkSdk';
 
-// Fixed derivation message for deterministic key generation
+// Fixed derivation message - changing this would change all derived keys!
 const DERIVATION_MESSAGE = 'Veil ElGamal Key Derivation v1';
 
-// Module-level key storage (not persisted, re-derived on page load)
+// Module-level key storage
 let elGamalKeypair: InstanceType<ZkSdkModule['ElGamalKeypair']> | null = null;
 let aeKey: InstanceType<ZkSdkModule['AeKey']> | null = null;
 let derivedForWallet: string | null = null;
 
 /**
- * Derive ElGamal keypair and AES key from wallet signature
- *
- * The wallet signs a fixed message, and we use the signature bytes
- * as entropy to deterministically derive the keys.
+ * Ensure bytes form a valid Ristretto scalar (< curve order ~2^252)
+ * We do this by clearing the top bits to guarantee the value is small enough.
+ */
+function clampToValidScalar(bytes: Uint8Array): Uint8Array {
+  const clamped = new Uint8Array(bytes);
+  // Clear top 4 bits of last byte to ensure < 2^252 (curve order is ~2^252)
+  clamped[31] = clamped[31]! & 0x0f;
+  return clamped;
+}
+
+/**
+ * Derive ElGamal keypair and AES key deterministically from wallet signature.
+ * The same wallet signing the same message will always produce the same keys.
  */
 export async function deriveKeys(
   wallet: WalletAdapter,
@@ -50,47 +65,42 @@ export async function deriveKeys(
   // Load ZK SDK
   const zkSdk = await loadZkSdk();
 
-  // Encode the derivation message
+  // Sign the fixed derivation message
   const messageBytes = new TextEncoder().encode(DERIVATION_MESSAGE);
-
-  // Sign the message with the wallet
+  console.log('[Key Manager] Requesting wallet signature...');
   const signature = await wallet.signMessage(messageBytes);
   console.log('[Key Manager] Signature obtained, length:', signature.length);
 
-  // Hash the signature to get deterministic, uniformly distributed bytes
-  // SHA-512 gives us 64 bytes to work with
+  // Hash signature with SHA-512 to get 64 bytes of uniform entropy
   const hash = sha512.create().update(signature).digest();
   console.log('[Key Manager] Signature hashed');
 
-  // For ElGamal secret key, we need a valid scalar.
-  // Take first 32 bytes from hash and clamp them like ed25519 does.
-  const elGamalSeed = new Uint8Array(hash.slice(0, 32));
-  // Clamp to make it a valid scalar (same as ed25519 key derivation)
-  elGamalSeed[0] = elGamalSeed[0]! & 248;
-  elGamalSeed[31] = elGamalSeed[31]! & 127;
-  elGamalSeed[31] = elGamalSeed[31]! | 64;
+  // For ElGamal: Take first 32 bytes and clamp to valid scalar
+  const elGamalSeed = clampToValidScalar(new Uint8Array(hash.slice(0, 32)));
 
   try {
+    // Create secret key from the clamped bytes
     const secretKey = zkSdk.ElGamalSecretKey.fromBytes(elGamalSeed);
     elGamalKeypair = zkSdk.ElGamalKeypair.fromSecretKey(secretKey);
-    console.log('[Key Manager] ElGamal keypair derived from signature');
+
+    const pubkeyHex = Array.from(elGamalKeypair.pubkey().toBytes())
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    console.log('[Key Manager] ElGamal keypair derived deterministically');
+    console.log('[Key Manager] ElGamal pubkey:', pubkeyHex.slice(0, 32) + '...');
   } catch (e) {
-    // If derivation fails, fall back to random keypair
-    console.warn('[Key Manager] Failed to derive deterministic keypair, using random:', e);
-    elGamalKeypair = new zkSdk.ElGamalKeypair();
-    console.log('[Key Manager] ElGamal keypair generated randomly');
+    console.error('[Key Manager] Failed to derive ElGamal keypair:', e);
+    throw new Error('Failed to derive ElGamal keypair from wallet signature');
   }
 
-  // Derive AES key from different portion of hash
-  // AeKey.fromBytes expects 16 bytes
-  const aeSeed = hash.slice(32, 48);
+  // For AES: Take bytes 32-48 (16 bytes for AES-128)
+  const aeSeed = new Uint8Array(hash.slice(32, 48));
   try {
     aeKey = zkSdk.AeKey.fromBytes(aeSeed);
-    console.log('[Key Manager] AES key derived from signature');
+    console.log('[Key Manager] AES key derived deterministically');
   } catch (e) {
-    console.warn('[Key Manager] Failed to derive deterministic AES key, using random:', e);
-    aeKey = new zkSdk.AeKey();
-    console.log('[Key Manager] AES key generated randomly');
+    console.error('[Key Manager] Failed to derive AES key:', e);
+    throw new Error('Failed to derive AES key from wallet signature');
   }
 
   // Cache the wallet address
@@ -148,10 +158,11 @@ export function isKeysDerivedFor(walletAddress: string): boolean {
 
 /**
  * Clear cached keys (e.g., on wallet disconnect)
+ * Keys will be re-derived on next use (same signature = same keys)
  */
 export function clearKeys(): void {
   elGamalKeypair = null;
   aeKey = null;
   derivedForWallet = null;
-  console.log('[Key Manager] Keys cleared');
+  console.log('[Key Manager] Keys cleared from memory');
 }

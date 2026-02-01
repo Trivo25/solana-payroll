@@ -257,6 +257,7 @@
           v-if="selectedInvoice"
           :invoice="selectedInvoice"
           :wallet-address="publicKey?.toBase58() || ''"
+          :wallet="walletAdapter"
           :is-open="showInvoiceModal"
           @close="closeInvoice"
           @paid="handleInvoicePaid"

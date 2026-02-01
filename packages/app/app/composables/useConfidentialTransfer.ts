@@ -154,7 +154,8 @@ function getConnection(): Connection {
 
 export function useConfidentialTransfer() {
   /**
-   * Derive ElGamal Keypair from wallet signature
+   * Derive ElGamal Keypair deterministically from wallet signature
+   * Same wallet = same signature = same keys (across browsers/sessions)
    */
   async function deriveElGamalKeypair(wallet: any): Promise<void> {
     const walletAddress = getWalletAddress(wallet);
@@ -173,10 +174,48 @@ export function useConfidentialTransfer() {
         return;
       }
 
-      // Derive keys from wallet signature
+      // Derive keys from wallet signature (deterministic!)
       await deriveKeys(wallet as WalletAdapter);
       elGamalPublicKey.value = getElGamalPublicKeyHex();
       console.log('[CT] ElGamal keypair derived:', elGamalPublicKey.value?.slice(0, 16) + '...');
+
+      // Verify keys match on-chain (they should, since derivation is deterministic)
+      if (testMint.value) {
+        const connection = getConnection();
+        const walletPubkey = new PublicKey(walletAddress);
+        const mintPubkey = new PublicKey(testMint.value);
+
+        const ata = getAssociatedTokenAddressSync(
+          mintPubkey,
+          walletPubkey,
+          false,
+          TOKEN_2022_PROGRAM_ID,
+        );
+
+        const accountInfo = await connection.getAccountInfo(ata);
+        if (accountInfo && hasConfidentialTransferExtension(accountInfo.data)) {
+          const onChainPubkeyBytes = readElGamalPubkey(accountInfo.data);
+          const localPubkeyBytes = getElGamalKeypair().pubkey().toBytes();
+
+          if (onChainPubkeyBytes) {
+            const onChainHex = Array.from(onChainPubkeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+            const localHex = Array.from(localPubkeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+            const keysMatch = onChainHex === localHex;
+
+            console.log('[CT] On-chain key:', onChainHex.slice(0, 16) + '...');
+            console.log('[CT] Local key:   ', localHex.slice(0, 16) + '...');
+            console.log('[CT] Keys match:', keysMatch ? '✓ YES' : '✗ NO');
+
+            if (!keysMatch) {
+              // This shouldn't happen with deterministic derivation unless
+              // the account was configured with old random keys
+              console.warn('[CT] Key mismatch! Account may have been configured with different keys.');
+              console.warn('[CT] Will reconfigure account with current deterministic keys...');
+              await configureConfidentialTransferAccount(wallet);
+            }
+          }
+        }
+      }
     } catch (e: any) {
       error.value = e.message || 'Failed to derive keypair';
       throw e;
@@ -582,7 +621,14 @@ export function useConfidentialTransfer() {
     _token: 'SOL' | 'USDC' = 'USDC',
   ): Promise<number> {
     const walletAddress = getWalletAddress(wallet);
-    if (!walletAddress || !testMint.value || !hasKeys()) return 0;
+    if (!walletAddress || !testMint.value || !hasKeys()) {
+      console.log('[CT] getPendingBalance: missing prerequisites', {
+        wallet: !!walletAddress,
+        mint: !!testMint.value,
+        keys: hasKeys(),
+      });
+      return 0;
+    }
 
     try {
       const connection = getConnection();
@@ -599,29 +645,82 @@ export function useConfidentialTransfer() {
       );
 
       const accountInfo = await connection.getAccountInfo(ata);
-      if (!accountInfo) return 0;
+      if (!accountInfo) {
+        console.log('[CT] getPendingBalance: account not found');
+        return 0;
+      }
+
+      console.log('[CT] getPendingBalance: account data length:', accountInfo.data.length);
 
       // Read pending balance ciphertexts
       const pendingCiphertexts = readPendingBalanceCiphertexts(accountInfo.data);
-      if (!pendingCiphertexts) return 0;
+      if (!pendingCiphertexts) {
+        console.log('[CT] getPendingBalance: no pending ciphertexts found');
+        return 0;
+      }
+
+      console.log('[CT] getPendingBalance: found ciphertexts, lo length:', pendingCiphertexts.lo.length, 'hi length:', pendingCiphertexts.hi.length);
+
+      // Log first few bytes to check if non-zero
+      const loPreview = Array.from(pendingCiphertexts.lo.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      const hiPreview = Array.from(pendingCiphertexts.hi.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+      console.log('[CT] getPendingBalance: lo first 8 bytes:', loPreview);
+      console.log('[CT] getPendingBalance: hi first 8 bytes:', hiPreview);
+
+      // Check if all zeros (no pending balance)
+      const loAllZeros = pendingCiphertexts.lo.every(b => b === 0);
+      const hiAllZeros = pendingCiphertexts.hi.every(b => b === 0);
+      if (loAllZeros && hiAllZeros) {
+        console.log('[CT] getPendingBalance: ciphertexts are all zeros (no pending balance)');
+        return 0;
+      }
+
+      // DIAGNOSTIC: Check if our local ElGamal pubkey matches the one on-chain
+      const onChainPubkeyBytes = readElGamalPubkey(accountInfo.data);
+      const localPubkeyBytes = elGamal.pubkey().toBytes();
+      if (onChainPubkeyBytes) {
+        const onChainHex = Array.from(onChainPubkeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        const localHex = Array.from(localPubkeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        console.log('[CT] getPendingBalance: on-chain ElGamal pubkey:', onChainHex.slice(0, 32) + '...');
+        console.log('[CT] getPendingBalance: local ElGamal pubkey:   ', localHex.slice(0, 32) + '...');
+        const keysMatch = onChainHex === localHex;
+        console.log('[CT] getPendingBalance: keys match:', keysMatch ? '✓ YES' : '✗ NO - THIS IS THE PROBLEM!');
+        if (!keysMatch) {
+          console.error('[CT] KEY MISMATCH: Your local ElGamal key does not match the one stored on-chain.');
+          console.error('[CT] This means you configured the account with a different key (possibly in another browser or session).');
+          console.error('[CT] Solution: Re-configure the account with your current key, or use the original wallet/browser.');
+        }
+      }
 
       // Parse ciphertexts
       const loCiphertext = zkSdk.ElGamalCiphertext.fromBytes(pendingCiphertexts.lo);
       const hiCiphertext = zkSdk.ElGamalCiphertext.fromBytes(pendingCiphertexts.hi);
 
-      if (!loCiphertext || !hiCiphertext) return 0;
+      if (!loCiphertext || !hiCiphertext) {
+        console.log('[CT] getPendingBalance: failed to parse ciphertexts', {
+          loOk: !!loCiphertext,
+          hiOk: !!hiCiphertext,
+        });
+        return 0;
+      }
 
       // Decrypt using ElGamal secret key
       const secretKey = elGamal.secret();
       const loAmount = secretKey.decrypt(loCiphertext);
       const hiAmount = secretKey.decrypt(hiCiphertext);
 
+      console.log('[CT] getPendingBalance: decrypted values - lo:', loAmount.toString(), 'hi:', hiAmount.toString());
+
       // Combine lo and hi (hi is shifted by 16 bits for u48 values, or 32 bits for larger)
       // For Token-2022 CT, pending balance uses 48-bit amounts split into two 24-bit parts
       // lo contains lower 16 bits, hi contains upper 32 bits
       const combined = loAmount + (hiAmount << 16n);
+      console.log('[CT] getPendingBalance: combined raw:', combined.toString());
 
-      return Number(combined) / Math.pow(10, DECIMALS);
+      const result = Number(combined) / Math.pow(10, DECIMALS);
+      console.log('[CT] getPendingBalance: final result:', result);
+
+      return result;
     } catch (e) {
       console.error('[CT] Error getting pending balance:', e);
       return 0;
@@ -1534,6 +1633,42 @@ export function useConfidentialTransfer() {
   }
 
   /**
+   * Check if a recipient has CT configured (can receive private transfers)
+   */
+  async function checkRecipientHasCT(recipientAddress: string): Promise<boolean> {
+    if (!testMint.value) {
+      console.log('[CT] No mint configured, cannot check recipient');
+      return false;
+    }
+
+    try {
+      const connection = getConnection();
+      const recipientPubkey = new PublicKey(recipientAddress);
+      const mintPubkey = new PublicKey(testMint.value);
+
+      const ata = getAssociatedTokenAddressSync(
+        mintPubkey,
+        recipientPubkey,
+        false,
+        TOKEN_2022_PROGRAM_ID,
+      );
+
+      const accountInfo = await connection.getAccountInfo(ata);
+      if (!accountInfo) {
+        console.log('[CT] Recipient ATA does not exist');
+        return false;
+      }
+
+      const hasCT = hasConfidentialTransferExtension(accountInfo.data);
+      console.log('[CT] Recipient has CT extension:', hasCT);
+      return hasCT;
+    } catch (e) {
+      console.error('[CT] Error checking recipient CT status:', e);
+      return false;
+    }
+  }
+
+  /**
    * Diagnostic function to check any wallet's CT account status
    * Useful for debugging transfer issues
    */
@@ -1727,6 +1862,7 @@ export function useConfidentialTransfer() {
     withdrawFromConfidential,
     transferConfidential,
     isAccountConfigured,
+    checkRecipientHasCT,
     fetchTransactionHistory,
     clearTransactionHistory,
     clearError,
