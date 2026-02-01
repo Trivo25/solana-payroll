@@ -25,7 +25,14 @@
           @drop.prevent="handleDrop"
         >
           <div v-if="!uploadedProof" class="upload-prompt">
-            <div class="upload-icon">&#x1F4C4;</div>
+            <div class="upload-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="14 2 14 8 20 8" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="12" y1="18" x2="12" y2="12" stroke-linecap="round"/>
+                <polyline points="9 15 12 12 15 15" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
             <p class="upload-text">Drop a ZK receipt file here</p>
             <p class="upload-hint">or</p>
             <label class="upload-btn">
@@ -35,7 +42,13 @@
           </div>
 
           <div v-else class="file-info">
-            <div class="file-icon">&#x1F4C4;</div>
+            <div class="file-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="14 2 14 8 20 8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9 15l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
             <div class="file-details">
               <span class="file-name">{{ fileName }}</span>
               <span class="file-size">ZK Receipt</span>
@@ -58,7 +71,11 @@
 
         <!-- Valid -->
         <div v-else-if="verificationState === 'valid'" class="result-card valid">
-          <div class="result-icon valid">&#x2713;</div>
+          <div class="result-icon valid">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
           <h2 class="result-title">Proof Verified</h2>
           <p class="result-desc">
             This ZK receipt cryptographically proves that a payment was made.
@@ -69,7 +86,11 @@
             <h3 class="claims-title">Verified Claims</h3>
 
             <div class="claim-item">
-              <span class="claim-icon">&#x2713;</span>
+              <span class="claim-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
               <div class="claim-content">
                 <span class="claim-label">Payment Proof</span>
                 <span class="claim-value">Prover knows the valid payment preimage</span>
@@ -77,7 +98,12 @@
             </div>
 
             <div class="claim-item" v-if="proofDetails?.disclosure?.revealInvoiceId">
-              <span class="claim-icon">&#x1F4C4;</span>
+              <span class="claim-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke-linecap="round" stroke-linejoin="round"/>
+                  <polyline points="14 2 14 8 20 8" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
               <div class="claim-content">
                 <span class="claim-label">Invoice ID (Revealed)</span>
                 <span class="claim-value mono">{{ proofDetails?.invoiceId }}</span>
@@ -85,7 +111,12 @@
             </div>
 
             <div class="claim-item" v-else>
-              <span class="claim-icon">&#x1F512;</span>
+              <span class="claim-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M7 11V7a5 5 0 0110 0v4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
               <div class="claim-content">
                 <span class="claim-label">Invoice Reference (Hidden)</span>
                 <span class="claim-value mono">{{ proofDetails?.invoiceId?.slice(0, 8) }}...</span>
@@ -93,7 +124,12 @@
             </div>
 
             <div class="claim-item" v-if="proofDetails?.disclosure?.revealRecipient">
-              <span class="claim-icon">&#x1F464;</span>
+              <span class="claim-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <circle cx="12" cy="7" r="4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
               <div class="claim-content">
                 <span class="claim-label">Recipient (Revealed)</span>
                 <span class="claim-value mono">Wallet address disclosed in proof</span>
@@ -101,7 +137,12 @@
             </div>
 
             <div class="claim-item" v-if="proofDetails?.disclosure?.minAmount">
-              <span class="claim-icon">&#x1F4B0;</span>
+              <span class="claim-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="1" x2="12" y2="23" stroke-linecap="round"/>
+                  <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
               <div class="claim-content">
                 <span class="claim-label">Minimum Amount</span>
                 <span class="claim-value">Payment &ge; ${{ proofDetails.disclosure.minAmount }}</span>
@@ -109,7 +150,12 @@
             </div>
 
             <div class="claim-item" v-if="proofDetails?.disclosure?.maxAmount">
-              <span class="claim-icon">&#x1F4B0;</span>
+              <span class="claim-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="1" x2="12" y2="23" stroke-linecap="round"/>
+                  <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
               <div class="claim-content">
                 <span class="claim-label">Maximum Amount</span>
                 <span class="claim-value">Payment &le; ${{ proofDetails.disclosure.maxAmount }}</span>
@@ -117,7 +163,14 @@
             </div>
 
             <div class="claim-item">
-              <span class="claim-icon">&#x1F4DD;</span>
+              <span class="claim-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 7V4a2 2 0 012-2h8.5L20 7.5V20a2 2 0 01-2 2H6a2 2 0 01-2-2v-3" stroke-linecap="round" stroke-linejoin="round"/>
+                  <polyline points="14 2 14 8 20 8" stroke-linecap="round" stroke-linejoin="round"/>
+                  <line x1="2" y1="12" x2="12" y2="12" stroke-linecap="round"/>
+                  <polyline points="6 9 2 12 6 15" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
               <div class="claim-content">
                 <span class="claim-label">Payment Reference</span>
                 <span class="claim-value mono">{{ proofDetails?.paymentRef?.slice(0, 16) }}...</span>
@@ -125,7 +178,12 @@
             </div>
 
             <div class="claim-item">
-              <span class="claim-icon">&#x1F550;</span>
+              <span class="claim-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" stroke-linecap="round" stroke-linejoin="round"/>
+                  <polyline points="12 6 12 12 16 14" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
               <div class="claim-content">
                 <span class="claim-label">Proof Created</span>
                 <span class="claim-value">{{ formatDate(proofDetails?.createdAt) }}</span>
@@ -134,7 +192,11 @@
           </div>
 
           <div class="privacy-note">
-            <span class="note-icon">&#x1F6E1;</span>
+            <span class="note-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
             <span v-if="hasDisclosures">
               This proof selectively reveals certain facts about the payment while keeping other details private.
             </span>
@@ -147,7 +209,12 @@
 
         <!-- Invalid -->
         <div v-else-if="verificationState === 'invalid'" class="result-card invalid">
-          <div class="result-icon invalid">&#x2717;</div>
+          <div class="result-icon invalid">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="6" y1="6" x2="18" y2="18" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
           <h2 class="result-title">Verification Failed</h2>
           <p class="result-desc">
             This proof could not be verified. It may be corrupted or tampered with.
@@ -157,7 +224,13 @@
 
         <!-- Error -->
         <div v-else-if="verificationState === 'error'" class="result-card error">
-          <div class="result-icon error">&#x26A0;</div>
+          <div class="result-icon error">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="12" y1="9" x2="12" y2="13" stroke-linecap="round" stroke-linejoin="round"/>
+              <line x1="12" y1="17" x2="12.01" y2="17" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
           <h2 class="result-title">Error</h2>
           <p class="result-desc">{{ errorMessage }}</p>
           <button class="retry-btn" @click="clearFile">Try Again</button>
@@ -169,7 +242,13 @@
         <h3 class="info-title">How ZK Receipts Work</h3>
         <div class="info-cards">
           <div class="info-card">
-            <span class="info-icon">&#x1F510;</span>
+            <span class="info-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M7 11V7a5 5 0 0110 0v4" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="12" cy="16" r="1" fill="currentColor"/>
+              </svg>
+            </span>
             <h4>Privacy-Preserving</h4>
             <p>
               ZK proofs verify payment facts without revealing sensitive transaction details
@@ -177,7 +256,12 @@
             </p>
           </div>
           <div class="info-card">
-            <span class="info-icon">&#x1F3AF;</span>
+            <span class="info-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
             <h4>Cryptographically Secure</h4>
             <p>
               Proofs are mathematically impossible to forge. If verification passes,
@@ -185,7 +269,12 @@
             </p>
           </div>
           <div class="info-card">
-            <span class="info-icon">&#x1F517;</span>
+            <span class="info-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
             <h4>Blockchain Linked</h4>
             <p>
               Each receipt is tied to a specific invoice and on-chain confidential transfer,
@@ -415,7 +504,7 @@ onMounted(() => {
 }
 
 .upload-icon {
-  font-size: 3rem;
+  color: var(--text-muted);
   margin-bottom: 0.5rem;
 }
 
@@ -455,7 +544,10 @@ onMounted(() => {
 }
 
 .file-icon {
-  font-size: 2rem;
+  color: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .file-details {
@@ -502,7 +594,6 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2rem;
   margin: 0 auto 1rem;
 }
 
@@ -578,7 +669,13 @@ onMounted(() => {
 }
 
 .claim-icon {
-  font-size: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: #10b981;
+  flex-shrink: 0;
 }
 
 .claim-content {
@@ -611,7 +708,10 @@ onMounted(() => {
 }
 
 .note-icon {
-  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6366f1;
   flex-shrink: 0;
 }
 
@@ -653,9 +753,11 @@ onMounted(() => {
 }
 
 .info-icon {
-  font-size: 1.5rem;
-  display: block;
-  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #10b981;
+  margin-bottom: 0.75rem;
 }
 
 .info-card h4 {
