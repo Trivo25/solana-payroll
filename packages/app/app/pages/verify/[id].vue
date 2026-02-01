@@ -69,18 +69,50 @@
             <h3 class="claims-title">Verified Claims</h3>
 
             <div class="claim-item">
-              <span class="claim-icon">&#x1F4B0;</span>
+              <span class="claim-icon">&#x2713;</span>
               <div class="claim-content">
-                <span class="claim-label">Payment Made</span>
-                <span class="claim-value">The prover knows the payment preimage</span>
+                <span class="claim-label">Payment Proof</span>
+                <span class="claim-value">Prover knows the valid payment preimage</span>
               </div>
             </div>
 
-            <div class="claim-item">
+            <div class="claim-item" v-if="proofDetails?.disclosure?.revealInvoiceId">
+              <span class="claim-icon">&#x1F4C4;</span>
+              <div class="claim-content">
+                <span class="claim-label">Invoice ID (Revealed)</span>
+                <span class="claim-value mono">{{ proofDetails?.invoiceId }}</span>
+              </div>
+            </div>
+
+            <div class="claim-item" v-else>
               <span class="claim-icon">&#x1F512;</span>
               <div class="claim-content">
-                <span class="claim-label">Invoice Reference</span>
+                <span class="claim-label">Invoice Reference (Hidden)</span>
                 <span class="claim-value mono">{{ proofDetails?.invoiceId?.slice(0, 8) }}...</span>
+              </div>
+            </div>
+
+            <div class="claim-item" v-if="proofDetails?.disclosure?.revealRecipient">
+              <span class="claim-icon">&#x1F464;</span>
+              <div class="claim-content">
+                <span class="claim-label">Recipient (Revealed)</span>
+                <span class="claim-value mono">Wallet address disclosed in proof</span>
+              </div>
+            </div>
+
+            <div class="claim-item" v-if="proofDetails?.disclosure?.minAmount">
+              <span class="claim-icon">&#x1F4B0;</span>
+              <div class="claim-content">
+                <span class="claim-label">Minimum Amount</span>
+                <span class="claim-value">Payment &ge; ${{ proofDetails.disclosure.minAmount }}</span>
+              </div>
+            </div>
+
+            <div class="claim-item" v-if="proofDetails?.disclosure?.maxAmount">
+              <span class="claim-icon">&#x1F4B0;</span>
+              <div class="claim-content">
+                <span class="claim-label">Maximum Amount</span>
+                <span class="claim-value">Payment &le; ${{ proofDetails.disclosure.maxAmount }}</span>
               </div>
             </div>
 
@@ -103,7 +135,10 @@
 
           <div class="privacy-note">
             <span class="note-icon">&#x1F6E1;</span>
-            <span>
+            <span v-if="hasDisclosures">
+              This proof selectively reveals certain facts about the payment while keeping other details private.
+            </span>
+            <span v-else>
               This proof reveals nothing about the payment amount, sender, or recipient addresses.
               Only that a valid payment matching the invoice was made.
             </span>
@@ -170,7 +205,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useZkReceipts, type ZkReceiptProof } from '~/composables/useZkReceipts'
 
@@ -191,9 +226,22 @@ const proofDetails = ref<{
   invoiceId: string
   paymentRef: string
   createdAt: number
+  disclosure: {
+    revealInvoiceId?: boolean
+    revealRecipient?: boolean
+    minAmount?: number
+    maxAmount?: number
+  }
 } | null>(null)
 
-// Format date helper
+// check if proof has any disclosures
+const hasDisclosures = computed(() => {
+  const d = proofDetails.value?.disclosure
+  if (!d) return false
+  return d.revealInvoiceId || d.revealRecipient || d.minAmount || d.maxAmount
+})
+
+// format date helper
 function formatDate(timestamp: number | undefined): string {
   if (!timestamp) return 'Unknown'
   return new Date(timestamp).toLocaleString()
@@ -238,6 +286,7 @@ async function loadAndVerify(file: File) {
       invoiceId: proof.invoiceId,
       paymentRef: proof.paymentRef,
       createdAt: proof.createdAt,
+      disclosure: proof.disclosure || {},
     }
 
     // Initialize prover if needed

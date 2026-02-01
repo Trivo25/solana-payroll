@@ -1,18 +1,8 @@
-/**
- * ZK Receipts Composable
- *
- * Provides ZK proof generation and verification for invoice payments.
- * Uses NoirJS to generate proofs in the browser that demonstrate
- * knowledge of payment data without revealing it.
- */
+// zk receipts composable - generates selective disclosure proofs for invoice payments
 
 import { ref, computed } from 'vue';
 import type { Invoice } from './useInvoices';
-import {
-  getPaymentPreimage,
-  hexToBytes,
-  generatePaymentRef,
-} from './useInvoices';
+import { hexToBytes, generatePaymentRef } from './useInvoices';
 import {
   initProver,
   isProverReady,
@@ -23,52 +13,87 @@ import {
   destroyProver,
   type ProofInputs,
   type GeneratedProof,
+  type DisclosureOptions,
 } from '../services/noirProver';
 
-// Proof metadata stored alongside the proof
 export interface ZkReceiptProof {
-  // The actual proof data
   proof: GeneratedProof;
-
-  // Metadata
   invoiceId: string;
   paymentRef: string;
   createdAt: number;
-
-  // Serialized version for storage
   serialized: string;
+  disclosure: DisclosureOptions;
 }
 
-// Progress tracking
 export interface ProofProgress {
   step: 'idle' | 'initializing' | 'preparing' | 'generating' | 'complete' | 'error';
   message: string;
 }
 
+// convert string to byte array
+function stringToBytes(str: string): number[] {
+  return Array.from(new TextEncoder().encode(str));
+}
+
+// pad array to fixed length
+function padArray(arr: number[], len: number): number[] {
+  const result = new Array(len).fill(0);
+  for (let i = 0; i < Math.min(arr.length, len); i++) {
+    result[i] = arr[i];
+  }
+  return result;
+}
+
+// build circuit inputs from invoice data
+function buildProofInputs(
+  invoice: Invoice,
+  nonce: string,
+  paymentRefBytes: number[],
+  disclosure: DisclosureOptions = {}
+): ProofInputs {
+  const invoiceIdBytes = stringToBytes(invoice.id);
+  const senderBytes = stringToBytes(invoice.sender);
+  const recipientBytes = stringToBytes(invoice.recipient);
+  const nonceBytes = stringToBytes(nonce);
+
+  // zeros = not disclosed
+  const zeroInvoiceId = new Array(36).fill(0);
+  const zeroRecipient = new Array(44).fill(0);
+
+  return {
+    // private inputs
+    invoice_id: padArray(invoiceIdBytes, 36),
+    sender: padArray(senderBytes, 44),
+    recipient: padArray(recipientBytes, 44),
+    amount: invoice.amount.toString(),
+    nonce: padArray(nonceBytes, 64),
+
+    // public inputs
+    payment_ref: paymentRefBytes,
+    public_invoice_id: disclosure.revealInvoiceId ? padArray(invoiceIdBytes, 36) : zeroInvoiceId,
+    public_recipient: disclosure.revealRecipient ? padArray(recipientBytes, 44) : zeroRecipient,
+    min_amount: (disclosure.minAmount || 0).toString(),
+    max_amount: (disclosure.maxAmount || 0).toString(),
+  };
+}
+
 export function useZkReceipts() {
-  // State
   const loading = ref(false);
   const error = ref<string | null>(null);
   const progress = ref<ProofProgress>({ step: 'idle', message: '' });
   const proverReady = ref(false);
 
-  // Check prover status
   const checkProverStatus = () => {
     proverReady.value = isProverReady();
     return proverReady.value;
   };
 
-  /**
-   * Initialize the prover (loads WASM, ~2-5 seconds first time)
-   */
   async function initializeProver(): Promise<boolean> {
-    if (checkProverStatus()) {
-      return true;
-    }
+    if (checkProverStatus()) return true;
 
     loading.value = true;
     error.value = null;
-    progress.value = { step: 'initializing', message: 'Loading ZK prover...' };
+    progress.value = { step: 'initializing', message: 'loading zk prover...' };
 
     try {
       await initProver();
@@ -76,34 +101,26 @@ export function useZkReceipts() {
       progress.value = { step: 'idle', message: '' };
       return true;
     } catch (e: any) {
-      const errorMsg = e.message || 'Failed to initialize prover';
-      error.value = errorMsg;
-      progress.value = { step: 'error', message: errorMsg };
+      const msg = e.message || 'failed to initialize prover';
+      error.value = msg;
+      progress.value = { step: 'error', message: msg };
       return false;
     } finally {
       loading.value = false;
     }
   }
 
-  /**
-   * Generate a ZK receipt proof for an invoice
-   *
-   * Requirements:
-   * - Invoice must be paid (have paymentNonce and paymentRef)
-   * - Prover must be initialized
-   *
-   * @param invoice - The paid invoice to generate proof for
-   * @returns The generated proof or null on error
-   */
-  async function generateReceipt(invoice: Invoice): Promise<ZkReceiptProof | null> {
-    // Validate invoice
+  async function generateReceipt(
+    invoice: Invoice,
+    disclosure: DisclosureOptions = {}
+  ): Promise<ZkReceiptProof | null> {
     if (!invoice.paymentNonce || !invoice.paymentRef) {
-      error.value = 'Invoice missing payment data (nonce or payment_ref)';
+      error.value = 'invoice missing payment data';
       return null;
     }
 
     if (invoice.status !== 'paid') {
-      error.value = 'Can only generate receipts for paid invoices';
+      error.value = 'invoice not paid';
       return null;
     }
 
@@ -111,27 +128,14 @@ export function useZkReceipts() {
     error.value = null;
 
     try {
-      // Step 1: Initialize prover if needed
       if (!checkProverStatus()) {
-        progress.value = { step: 'initializing', message: 'Loading ZK prover...' };
+        progress.value = { step: 'initializing', message: 'loading zk prover...' };
         await initProver();
         proverReady.value = true;
       }
 
-      // Step 2: Prepare inputs
-      progress.value = { step: 'preparing', message: 'Preparing proof inputs...' };
+      progress.value = { step: 'preparing', message: 'preparing inputs...' };
 
-      // Build the preimage from invoice data
-      const preimage = getPaymentPreimage(
-        invoice.id,
-        invoice.sender,
-        invoice.recipient,
-        invoice.amount,
-        invoice.paymentNonce
-      );
-
-      // Get the payment_ref as bytes
-      // Note: paymentRef in DB might be truncated, we need full hash
       const fullPaymentRef = await generatePaymentRef(
         invoice.id,
         invoice.sender,
@@ -139,77 +143,55 @@ export function useZkReceipts() {
         invoice.amount,
         invoice.paymentNonce
       );
-      const paymentRefBytes = hexToBytes(fullPaymentRef);
+      const paymentRefBytes = Array.from(hexToBytes(fullPaymentRef));
 
-      // Prepare circuit inputs
-      const inputs: ProofInputs = {
-        preimage: Array.from(preimage),
-        payment_ref: Array.from(paymentRefBytes),
-      };
+      const inputs = buildProofInputs(invoice, invoice.paymentNonce, paymentRefBytes, disclosure);
 
-      // Step 3: Generate proof
-      progress.value = { step: 'generating', message: 'Generating ZK proof... (this may take 10-30 seconds)' };
+      progress.value = { step: 'generating', message: 'generating proof... (10-30s)' };
 
       const proof = await noirGenerateProof(inputs);
 
-      // Step 4: Package result
-      progress.value = { step: 'complete', message: 'Proof generated successfully!' };
+      progress.value = { step: 'complete', message: 'done' };
 
-      const zkReceipt: ZkReceiptProof = {
+      return {
         proof,
         invoiceId: invoice.id,
         paymentRef: fullPaymentRef,
         createdAt: Date.now(),
         serialized: serializeProof(proof),
+        disclosure,
       };
-
-      return zkReceipt;
     } catch (e: any) {
-      const errorMsg = e.message || 'Failed to generate proof';
-      error.value = errorMsg;
-      progress.value = { step: 'error', message: errorMsg };
-      console.error('[useZkReceipts] Error:', e);
+      const msg = e.message || 'proof generation failed';
+      error.value = msg;
+      progress.value = { step: 'error', message: msg };
+      console.error('[zk] error:', e);
       return null;
     } finally {
       loading.value = false;
     }
   }
 
-  /**
-   * Verify a ZK receipt proof
-   *
-   * @param receipt - The proof to verify
-   * @returns true if valid
-   */
   async function verifyReceipt(receipt: ZkReceiptProof): Promise<boolean> {
     loading.value = true;
     error.value = null;
 
     try {
-      // Initialize prover if needed
       if (!checkProverStatus()) {
         await initProver();
         proverReady.value = true;
       }
 
-      const isValid = await noirVerifyProof(
-        receipt.proof.proof,
-        receipt.proof.publicInputs
-      );
-
-      return isValid;
+      return await noirVerifyProof(receipt.proof.proof, receipt.proof.publicInputs);
     } catch (e: any) {
-      error.value = e.message || 'Failed to verify proof';
-      console.error('[useZkReceipts] Verification error:', e);
+      error.value = e.message || 'verification failed';
+      console.error('[zk] verify error:', e);
       return false;
     } finally {
       loading.value = false;
     }
   }
 
-  /**
-   * Verify a serialized proof (from JSON string)
-   */
   async function verifySerializedProof(serialized: string): Promise<boolean> {
     try {
       const proof = deserializeProof(serialized);
@@ -223,23 +205,21 @@ export function useZkReceipts() {
 
       return await noirVerifyProof(proof.proof, proof.publicInputs);
     } catch (e: any) {
-      error.value = e.message || 'Failed to verify proof';
+      error.value = e.message || 'verification failed';
       return false;
     } finally {
       loading.value = false;
     }
   }
 
-  /**
-   * Export proof as downloadable JSON file
-   */
   function downloadProof(receipt: ZkReceiptProof, filename?: string): void {
     const data = {
       type: 'zk-receipt',
-      version: 1,
+      version: 2,
       invoiceId: receipt.invoiceId,
       paymentRef: receipt.paymentRef,
       createdAt: receipt.createdAt,
+      disclosure: receipt.disclosure,
       proof: receipt.serialized,
     };
 
@@ -254,16 +234,13 @@ export function useZkReceipts() {
     URL.revokeObjectURL(url);
   }
 
-  /**
-   * Load proof from uploaded file
-   */
   async function loadProofFromFile(file: File): Promise<ZkReceiptProof | null> {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
 
       if (data.type !== 'zk-receipt') {
-        throw new Error('Invalid file format');
+        throw new Error('invalid file format');
       }
 
       const proof = deserializeProof(data.proof);
@@ -274,24 +251,19 @@ export function useZkReceipts() {
         paymentRef: data.paymentRef,
         createdAt: data.createdAt,
         serialized: data.proof,
+        disclosure: data.disclosure || {},
       };
     } catch (e: any) {
-      error.value = e.message || 'Failed to load proof file';
+      error.value = e.message || 'failed to load file';
       return null;
     }
   }
 
-  /**
-   * Clean up prover resources
-   */
   async function cleanup(): Promise<void> {
     await destroyProver();
     proverReady.value = false;
   }
 
-  /**
-   * Clear error state
-   */
   function clearError(): void {
     error.value = null;
     if (progress.value.step === 'error') {
@@ -300,13 +272,11 @@ export function useZkReceipts() {
   }
 
   return {
-    // State
     loading,
     error,
     progress,
     proverReady: computed(() => proverReady.value),
 
-    // Actions
     initializeProver,
     generateReceipt,
     verifyReceipt,
@@ -317,3 +287,5 @@ export function useZkReceipts() {
     clearError,
   };
 }
+
+export type { DisclosureOptions };
