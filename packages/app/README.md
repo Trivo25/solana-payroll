@@ -7,7 +7,9 @@ Veil is your private financial layer on Solana. Send, receive, and automate tran
 - **Private Transfers** - Send and receive tokens without revealing amounts
 - **Confidential Balances** - Your balances are encrypted on-chain
 - **Private Invoicing** - Create and pay invoices with confidential amounts
+- **Payment Links** - Share payment links that anyone can pay with one click
 - **Selective Disclosure** - Prove payments without revealing everything
+- **Guided Onboarding** - Step-by-step setup wizard for confidential transfers
 - **Programmable Privacy** - Schedule and automate private transactions
 
 ## Invoice ↔ Transaction Linking
@@ -63,6 +65,60 @@ const paymentRef = await generatePaymentRef(
 // Include in CT transfer as memo (InvoiceModal.vue)
 await transferConfidential(wallet, recipient, amount, paymentRef);
 ```
+
+---
+
+## Payment Links
+
+Share a URL and get paid - no back-and-forth needed. Payment links let anyone pay your invoices directly, even if they've never used the app before.
+
+### How it works
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. CREATE INVOICE                                          │
+│     → Set amount, description, due date                     │
+│     → Invoice stored in Supabase with unique ID             │
+├─────────────────────────────────────────────────────────────┤
+│  2. SHARE PAYMENT LINK                                      │
+│     → Copy link: /pay/{invoiceId}                           │
+│     → Send via email, chat, wherever                        │
+├─────────────────────────────────────────────────────────────┤
+│  3. PAYER OPENS LINK                                        │
+│     → Connects wallet (Phantom, Solflare, etc)              │
+│     → Sees invoice details + thier balance                  │
+│     → Chooses public or private payment method              │
+├─────────────────────────────────────────────────────────────┤
+│  4. PAYMENT CONFIRMED                                       │
+│     → Invoice marked as paid                                │
+│     → Transaction linked via payment reference              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Why payment links?
+
+| Benefit | Explanation |
+|---------|-------------|
+| **Frictionless** | Payer doesn't need to manually enter addresses or amounts |
+| **Shareable** | Works anywhere - email, Discord, Twitter DMs |
+| **Flexible** | Supports both public and confidential payment methods |
+| **Trackable** | Invoice status updates automatcally when paid |
+
+---
+
+## Onboarding Flow
+
+Setting up confidential transfers requries a few steps. The Setup Wizard guides new users through each one.
+
+### Steps
+
+1. **Enable CT Account** - Configure your token account for confidential transfers
+2. **Unlock Encryption** - Sign a message to derive your ElGamal keypair
+3. **Get Test Tokens** - Airdrop test tokens to play with (devnet only)
+4. **Deposit to Private** - Move tokens from public to confidential balance
+5. **Apply Pending** - Apply any pending balance to make it spendable
+
+The wizard auto-detects which steps are complete and highlights what's next. Once all steps are done it disappears and you're ready to go.
 
 ---
 
