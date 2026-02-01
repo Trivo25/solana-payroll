@@ -1564,6 +1564,11 @@ export function useConfidentialTransfer() {
     }
   }
 
+  // Clear error message
+  function clearError(): void {
+    error.value = null;
+  }
+
   return {
     // State
     loading,
@@ -1589,5 +1594,6 @@ export function useConfidentialTransfer() {
     isAccountConfigured,
     fetchTransactionHistory,
     clearTransactionHistory,
+    clearError,
   };
 }

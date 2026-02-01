@@ -178,18 +178,31 @@
     </div>
 
     <!-- error message -->
-    <div v-if="error" class="error-message">
-      {{ error }}
+    <div v-if="errorInfo" class="error-wrapper">
+      <ErrorAlert
+        :title="errorInfo.title"
+        :message="errorInfo.message"
+        :hint="errorInfo.hint"
+        :type="errorInfo.type"
+        @dismiss="clearError"
+      />
     </div>
 
     <!-- deposit modal -->
     <div
       v-if="showDepositModal"
       class="modal-overlay"
-      @click.self="closeDepositModal"
+      @click.self="!loading && closeDepositModal()"
     >
       <div class="modal">
-        <h3>Deposit to c{{ selectedToken }}</h3>
+        <div class="modal-header">
+          <h3>Deposit to c{{ selectedToken }}</h3>
+          <button class="modal-close" @click="closeDepositModal" :disabled="loading">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
         <p class="modal-desc">
           Move USDC from public to private balance. Once deposited, your balance
           will be encrypted.
@@ -212,14 +225,15 @@
             min="0"
             step="0.01"
             placeholder="0.00"
+            :disabled="loading"
           />
-          <button class="max-btn" @click="depositAmount = usdcPublicBalance">
+          <button class="max-btn" @click="depositAmount = usdcPublicBalance" :disabled="loading">
             MAX
           </button>
         </div>
 
         <div class="modal-actions">
-          <button class="btn btn-secondary" @click="closeDepositModal">
+          <button class="btn btn-secondary" @click="closeDepositModal" :disabled="loading">
             Cancel
           </button>
           <button
@@ -229,7 +243,11 @@
             "
             @click="handleDeposit"
           >
-            {{ loading ? 'Depositing...' : 'Deposit' }}
+            <span v-if="loading" class="btn-loading">
+              <span class="spinner-small"></span>
+              Depositing...
+            </span>
+            <span v-else>Deposit</span>
           </button>
         </div>
       </div>
@@ -239,10 +257,17 @@
     <div
       v-if="showWithdrawModal"
       class="modal-overlay"
-      @click.self="closeWithdrawModal"
+      @click.self="!loading && closeWithdrawModal()"
     >
       <div class="modal">
-        <h3>Withdraw from cUSDC</h3>
+        <div class="modal-header">
+          <h3>Withdraw from cUSDC</h3>
+          <button class="modal-close" @click="closeWithdrawModal" :disabled="loading">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
         <p class="modal-desc">
           Move USDC from private to public balance. This requires generating a
           ZK proof.
@@ -265,10 +290,12 @@
             min="0"
             step="0.01"
             placeholder="0.00"
+            :disabled="loading"
           />
           <button
             class="max-btn"
             @click="withdrawAmount = usdcConfidentialBalance"
+            :disabled="loading"
           >
             MAX
           </button>
@@ -312,13 +339,13 @@
             "
             @click="handleWithdraw"
           >
-            {{
-              withdrawProgress
-                ? withdrawProgress.currentStep
-                : loading
-                  ? 'Withdrawing...'
-                  : 'Withdraw'
-            }}
+            <span v-if="withdrawProgress && showWithdrawModal" class="btn-loading">
+              <span class="spinner-small"></span>
+              Processing...
+            </span>
+            <span v-else>
+              {{ loading ? 'Withdrawing...' : 'Withdraw' }}
+            </span>
           </button>
         </div>
       </div>
@@ -328,10 +355,17 @@
     <div
       v-if="showTransferModal"
       class="modal-overlay"
-      @click.self="closeTransferModal"
+      @click.self="!loading && closeTransferModal()"
     >
       <div class="modal">
-        <h3>Transfer Privately</h3>
+        <div class="modal-header">
+          <h3>Transfer Privately</h3>
+          <button class="modal-close" @click="closeTransferModal" :disabled="loading">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
         <p class="modal-desc">
           Send cUSDC privately to another wallet. The amount will be encrypted
           and only visible to sender and recipient.
@@ -352,6 +386,7 @@
             type="text"
             placeholder="Enter Solana wallet address"
             class="recipient-input"
+            :disabled="loading"
           />
         </div>
 
@@ -364,13 +399,36 @@
             min="0"
             step="0.01"
             placeholder="0.00"
+            :disabled="loading"
           />
           <button
             class="max-btn"
             @click="transferAmount = usdcConfidentialBalance"
+            :disabled="loading"
           >
             MAX
           </button>
+        </div>
+
+        <!-- Transfer progress indicator -->
+        <div v-if="withdrawProgress && showTransferModal" class="withdraw-progress transfer-progress">
+          <div class="progress-header">
+            <span class="progress-title">Processing Transfer</span>
+            <span class="progress-step"
+              >Step {{ withdrawProgress.step }}/{{
+                withdrawProgress.totalSteps
+              }}</span
+            >
+          </div>
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              :style="{
+                width: `${(withdrawProgress.step / withdrawProgress.totalSteps) * 100}%`,
+              }"
+            ></div>
+          </div>
+          <div class="progress-status">{{ withdrawProgress.currentStep }}</div>
         </div>
 
         <div class="modal-actions">
@@ -391,7 +449,13 @@
             "
             @click="handleTransfer"
           >
-            {{ loading ? 'Transferring...' : 'Transfer Privately' }}
+            <span v-if="withdrawProgress && showTransferModal" class="btn-loading">
+              <span class="spinner-small"></span>
+              Processing...
+            </span>
+            <span v-else>
+              {{ loading ? 'Transferring...' : 'Transfer Privately' }}
+            </span>
           </button>
         </div>
       </div>
@@ -400,7 +464,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer';
 
 const props = defineProps<{
@@ -428,6 +492,7 @@ const {
   transferConfidential,
   isAccountConfigured,
   fetchTransactionHistory,
+  clearError: clearComposableError,
 } = useConfidentialTransfer();
 
 // Token type
@@ -454,6 +519,84 @@ const transferRecipient = ref('');
 const isDev = ref(true); // always true for local dev
 const derivingKey = ref(false);
 const configuringAccount = ref(false);
+
+// Error info parsing - converts raw error messages to user-friendly format
+interface ErrorInfo {
+  title: string;
+  message?: string;
+  hint?: string;
+  type: 'error' | 'warning' | 'success';
+}
+
+const errorInfo = computed<ErrorInfo | null>(() => {
+  if (!error.value) return null;
+
+  const msg = error.value.toLowerCase();
+
+  // Network/connection errors
+  if (msg.includes('network') || msg.includes('fetch') || msg.includes('connection')) {
+    return {
+      title: 'Connection Error',
+      message: 'Unable to connect to the network.',
+      hint: 'Check your internet connection and try again.',
+      type: 'error',
+    };
+  }
+
+  // Wallet rejected
+  if (msg.includes('rejected') || msg.includes('cancelled') || msg.includes('user denied')) {
+    return {
+      title: 'Transaction Cancelled',
+      message: 'You declined the transaction.',
+      hint: 'Click the button again if you want to retry.',
+      type: 'warning',
+    };
+  }
+
+  // Insufficient balance
+  if (msg.includes('insufficient')) {
+    return {
+      title: 'Insufficient Balance',
+      message: error.value,
+      hint: 'Make sure you have enough balance for this operation.',
+      type: 'error',
+    };
+  }
+
+  // Account not configured
+  if (msg.includes('not configured') || msg.includes('not found')) {
+    return {
+      title: 'Account Not Ready',
+      message: error.value,
+      hint: 'Make sure the account is set up for confidential transfers.',
+      type: 'error',
+    };
+  }
+
+  // Timeout
+  if (msg.includes('timeout') || msg.includes('expired')) {
+    return {
+      title: 'Request Timed Out',
+      message: 'The operation took too long.',
+      hint: 'The network may be congested. Please try again.',
+      type: 'warning',
+    };
+  }
+
+  // Generic fallback
+  return {
+    title: 'Something Went Wrong',
+    message: error.value,
+    hint: 'Please try again. If the problem persists, refresh the page.',
+    type: 'error',
+  };
+});
+
+function clearError() {
+  if (clearComposableError) {
+    clearComposableError();
+  }
+}
 
 // format balance with configurable decimals
 function formatBalance(balance: number, decimals: number = 2): string {
@@ -1180,14 +1323,9 @@ onUnmounted(() => {
   background: rgba(245, 158, 11, 0.2);
 }
 
-/* error message */
-.error-message {
-  margin-top: 0.75rem;
-  padding: 0.75rem;
-  background: rgba(239, 68, 68, 0.1);
-  border-radius: 8px;
-  font-size: 0.75rem;
-  color: #ef4444;
+/* error wrapper */
+.error-wrapper {
+  margin-top: 1rem;
 }
 
 /* modal */
@@ -1195,10 +1333,17 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  animation: fade-in 0.15s ease-out;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal {
@@ -1207,6 +1352,29 @@ onUnmounted(() => {
   padding: 1.5rem;
   max-width: 400px;
   width: 90%;
+  animation: modal-in 0.2s ease-out;
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.modal-header h3 {
+  margin: 0;
 }
 
 .modal h3 {
@@ -1214,6 +1382,31 @@ onUnmounted(() => {
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 0.5rem;
+}
+
+.modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin: -0.5rem -0.5rem -0.5rem 0;
+}
+
+.modal-close:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.05);
+  color: var(--text-secondary);
+}
+
+.modal-close:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 .modal-desc {
@@ -1346,6 +1539,45 @@ onUnmounted(() => {
   font-size: 0.625rem;
   color: var(--text-secondary);
   text-align: center;
+}
+
+/* transfer progress - green theme */
+.transfer-progress {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+.transfer-progress .progress-title {
+  color: #10b981;
+}
+
+.transfer-progress .progress-bar {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.transfer-progress .progress-fill {
+  background: #10b981;
+}
+
+/* button loading state */
+.btn-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.spinner-small {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* transfer button */
