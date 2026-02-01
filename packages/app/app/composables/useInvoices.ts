@@ -1,146 +1,310 @@
 import { ref } from 'vue';
+import { useSupabase } from './useSupabase';
 
 export type InvoiceStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
+export type PaymentMethod = 'public' | 'confidential';
 
 export interface Invoice {
-  // on-chain data
-  id: string; // unique invoice id (would be pda address on-chain)
-  sender: string; // wallet address of sender/business
-  recipient: string; // wallet address of recipient/employee
-  amount: number; // payment amount
-  mint: string; // token mint address
-  status: InvoiceStatus; // payment status
-  createdAt: number; // unix timestamp
-  paidAt?: number; // unix timestamp when paid
-  txSignature?: string; // transaction signature if paid
+  // database id
+  id: string;
 
-  // off-chain metadata (stored in supabase or ipfs)
-  title: string; // invoice title/description
-  description?: string; // detailed description
-  dueDate?: number; // unix timestamp
-  category?: string; // expense category
-  attachmentUrl?: string; // receipt/document url
+  // parties (wallet addresses)
+  sender: string;      // who created the invoice (will receive payment)
+  recipient: string;   // who needs to pay
 
-  // zk receipt data (would be generated after payment)
-  receiptHash?: string; // hash of the zk receipt
-  proofAvailable?: boolean; // whether a zk proof can be generated
+  // payment details
+  amount: number;
+  mint: string;        // token mint address
+  status: InvoiceStatus;
+
+  // metadata
+  title: string;
+  description?: string;
+  dueDate?: number;    // unix timestamp
+  category?: string;
+
+  // payment info
+  paidAt?: number;     // unix timestamp
+  txSignature?: string;
+  paymentMethod?: PaymentMethod;
+
+  // payment reference (for CT linking)
+  paymentNonce?: string;
+  paymentRef?: string;
+
+  // zk receipt data
+  receiptHash?: string;
+  proofAvailable?: boolean;
+
+  // timestamps
+  createdAt: number;   // unix timestamp
+  updatedAt: number;   // unix timestamp
 }
 
-// dummy invoices for development
-const dummyInvoices: Invoice[] = [
-  {
-    id: 'inv_005',
-    sender: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
-    recipient: '418TYLVz6HopERHb9hPeyzaUXVnvqmNfxMPaidQ3HJVz',
-    amount: 750,
-    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-    status: 'pending',
-    createdAt: Date.now() - 86400000 * 3,
-    title: 'Consulting Services - Q1',
-    description: 'Strategic consulting for product roadmap',
-    dueDate: Date.now() + 86400000 * 7,
-    category: 'Consulting',
-    proofAvailable: false,
-  },
-  {
-    id: 'inv_006',
-    sender: '418TYLVz6HopERHb9hPeyzaUXVnvqmNfxMPaidQ3HJVz',
-    recipient: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
-    amount: 1200,
-    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-    status: 'pending',
-    createdAt: Date.now() - 86400000 * 1,
-    title: 'Development Work - Smart Contracts',
-    description: 'Solana program development for payroll system',
-    dueDate: Date.now() + 86400000 * 14,
-    category: 'Development',
-    proofAvailable: false,
-  },
-  {
-    id: 'inv_001',
-    sender: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
-    recipient: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
-    amount: 1500,
-    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', // USDC
-    status: 'pending',
-    createdAt: Date.now() - 86400000 * 2, // 2 days ago
-    title: 'January Salary',
-    description: 'Monthly salary payment for January 2025',
-    dueDate: Date.now() + 86400000 * 5, // 5 days from now
-    category: 'Salary',
-    proofAvailable: false,
-  },
-  {
-    id: 'inv_002',
-    sender: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
-    recipient: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
-    amount: 500,
-    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-    status: 'paid',
-    createdAt: Date.now() - 86400000 * 10,
-    paidAt: Date.now() - 86400000 * 8,
-    txSignature:
-      '5UfDuX7x8H3kL9mN2pQ4rS6tV8wY1zA3bC5dE7fG9hJ2kL4mN6pQ8rS1tV3wY5zA7bC9dE1fG3hJ5kL7mN9pQ',
-    title: 'December Bonus',
-    description: 'Year-end performance bonus',
-    category: 'Bonus',
-    receiptHash:
-      '0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069',
-    proofAvailable: true,
-  },
-  {
-    id: 'inv_003',
-    sender: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
-    recipient: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
-    amount: 250,
-    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-    status: 'overdue',
-    createdAt: Date.now() - 86400000 * 15,
-    dueDate: Date.now() - 86400000 * 5, // 5 days ago
-    title: 'Freelance Project - Website Design',
-    description: 'Landing page design and development',
-    category: 'Contract Work',
-    proofAvailable: false,
-  },
-  {
-    id: 'inv_004',
-    sender: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
-    recipient: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM',
-    amount: 2000,
-    mint: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-    status: 'paid',
-    createdAt: Date.now() - 86400000 * 30,
-    paidAt: Date.now() - 86400000 * 28,
-    txSignature:
-      '3TfDuX7x8H3kL9mN2pQ4rS6tV8wY1zA3bC5dE7fG9hJ2kL4mN6pQ8rS1tV3wY5zA7bC9dE1fG3hJ5kL7mN9pQ',
-    title: 'November Salary',
-    description: 'Monthly salary payment for November 2024',
-    category: 'Salary',
-    receiptHash:
-      '0x8f94c2768ff2fd64c93ed29259b2e76efd3e5c2gb4e788395beef311237ea17a',
-    proofAvailable: true,
-  },
-];
+// Database row type (snake_case from Supabase)
+interface InvoiceRow {
+  id: string;
+  sender_wallet: string;
+  recipient_wallet: string;
+  amount: number;
+  mint: string;
+  status: InvoiceStatus;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  category: string | null;
+  paid_at: string | null;
+  tx_signature: string | null;
+  payment_method: PaymentMethod | null;
+  payment_nonce: string | null;
+  payment_ref: string | null;
+  receipt_hash: string | null;
+  proof_available: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Convert database row to Invoice interface
+function rowToInvoice(row: InvoiceRow): Invoice {
+  return {
+    id: row.id,
+    sender: row.sender_wallet,
+    recipient: row.recipient_wallet,
+    amount: Number(row.amount),
+    mint: row.mint,
+    status: row.status,
+    title: row.title,
+    description: row.description ?? undefined,
+    dueDate: row.due_date ? new Date(row.due_date).getTime() : undefined,
+    category: row.category ?? undefined,
+    paidAt: row.paid_at ? new Date(row.paid_at).getTime() : undefined,
+    txSignature: row.tx_signature ?? undefined,
+    paymentMethod: row.payment_method ?? undefined,
+    paymentNonce: row.payment_nonce ?? undefined,
+    paymentRef: row.payment_ref ?? undefined,
+    receiptHash: row.receipt_hash ?? undefined,
+    proofAvailable: row.proof_available,
+    createdAt: new Date(row.created_at).getTime(),
+    updatedAt: new Date(row.updated_at).getTime(),
+  };
+}
+
+// Input for creating a new invoice
+export interface CreateInvoiceInput {
+  recipient: string;   // wallet address of who needs to pay
+  amount: number;
+  mint: string;
+  title: string;
+  description?: string;
+  dueDate?: Date;
+  category?: string;
+}
+
+// Input for updating invoice payment status
+export interface PayInvoiceInput {
+  txSignature: string;
+  paymentMethod: PaymentMethod;
+  paymentNonce?: string;
+  paymentRef?: string;
+}
 
 export function useInvoices() {
-  const invoices = ref<Invoice[]>(dummyInvoices);
+  const { supabase } = useSupabase();
+  const invoices = ref<Invoice[]>([]);
   const loading = ref(false);
+  const error = ref<string | null>(null);
 
-  // get invoices for a wallet (as sender or recipient)
+  // Fetch all invoices for a wallet
+  async function fetchInvoices(walletAddress: string): Promise<void> {
+    if (!supabase) {
+      error.value = 'Supabase not initialized';
+      return;
+    }
+
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('invoices')
+        .select('*')
+        .or(`sender_wallet.eq.${walletAddress},recipient_wallet.eq.${walletAddress}`)
+        .order('created_at', { ascending: false });
+
+      if (fetchError) {
+        console.error('[Invoices] Fetch error:', fetchError);
+        error.value = fetchError.message;
+        return;
+      }
+
+      invoices.value = (data as InvoiceRow[]).map(rowToInvoice);
+      console.log(`[Invoices] Fetched ${invoices.value.length} invoices`);
+    } catch (e: any) {
+      error.value = e.message || 'Failed to fetch invoices';
+      console.error('[Invoices] Error:', e);
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // Create a new invoice
+  async function createInvoice(
+    senderWallet: string,
+    input: CreateInvoiceInput
+  ): Promise<Invoice | null> {
+    if (!supabase) {
+      error.value = 'Supabase not initialized';
+      return null;
+    }
+
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const { data, error: insertError } = await supabase
+        .from('invoices')
+        .insert({
+          sender_wallet: senderWallet,
+          recipient_wallet: input.recipient,
+          amount: input.amount,
+          mint: input.mint,
+          title: input.title,
+          description: input.description || null,
+          due_date: input.dueDate?.toISOString() || null,
+          category: input.category || null,
+          status: 'pending',
+          proof_available: false,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('[Invoices] Create error:', insertError);
+        error.value = insertError.message;
+        return null;
+      }
+
+      const invoice = rowToInvoice(data as InvoiceRow);
+      invoices.value.unshift(invoice); // Add to beginning of list
+      console.log('[Invoices] Created invoice:', invoice.id);
+      return invoice;
+    } catch (e: any) {
+      error.value = e.message || 'Failed to create invoice';
+      console.error('[Invoices] Error:', e);
+      return null;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // Pay an invoice (update status)
+  async function payInvoice(
+    invoiceId: string,
+    payment: PayInvoiceInput
+  ): Promise<boolean> {
+    if (!supabase) {
+      error.value = 'Supabase not initialized';
+      return false;
+    }
+
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const { data, error: updateError } = await supabase
+        .from('invoices')
+        .update({
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          tx_signature: payment.txSignature,
+          payment_method: payment.paymentMethod,
+          payment_nonce: payment.paymentNonce || null,
+          payment_ref: payment.paymentRef || null,
+          proof_available: true,
+          receipt_hash: `0x${Array.from(crypto.getRandomValues(new Uint8Array(32))).map(b => b.toString(16).padStart(2, '0')).join('')}`,
+        })
+        .eq('id', invoiceId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('[Invoices] Pay error:', updateError);
+        error.value = updateError.message;
+        return false;
+      }
+
+      // Update local state
+      const updatedInvoice = rowToInvoice(data as InvoiceRow);
+      const index = invoices.value.findIndex(inv => inv.id === invoiceId);
+      if (index !== -1) {
+        invoices.value[index] = updatedInvoice;
+      }
+
+      console.log('[Invoices] Paid invoice:', invoiceId);
+      return true;
+    } catch (e: any) {
+      error.value = e.message || 'Failed to pay invoice';
+      console.error('[Invoices] Error:', e);
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // Cancel an invoice
+  async function cancelInvoice(invoiceId: string): Promise<boolean> {
+    if (!supabase) {
+      error.value = 'Supabase not initialized';
+      return false;
+    }
+
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const { error: updateError } = await supabase
+        .from('invoices')
+        .update({ status: 'cancelled' })
+        .eq('id', invoiceId);
+
+      if (updateError) {
+        console.error('[Invoices] Cancel error:', updateError);
+        error.value = updateError.message;
+        return false;
+      }
+
+      // Update local state
+      const index = invoices.value.findIndex(inv => inv.id === invoiceId);
+      if (index !== -1) {
+        invoices.value[index].status = 'cancelled';
+      }
+
+      console.log('[Invoices] Cancelled invoice:', invoiceId);
+      return true;
+    } catch (e: any) {
+      error.value = e.message || 'Failed to cancel invoice';
+      console.error('[Invoices] Error:', e);
+      return false;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  // Get invoices for a wallet (from local state)
   function getInvoicesForWallet(walletAddress: string): Invoice[] {
     return invoices.value.filter(
       (inv) => inv.sender === walletAddress || inv.recipient === walletAddress
     );
   }
 
-  // get invoices where wallet is the payer (recipient of invoice = they owe money)
+  // Get invoices where wallet needs to pay (recipient of invoice)
   function getPayableInvoices(walletAddress: string): Invoice[] {
     return invoices.value.filter(
       (inv) => inv.recipient === walletAddress && inv.status === 'pending'
     );
   }
 
-  // get invoices where wallet is the receiver (sender of invoice = they are owed money)
+  // Get invoices where wallet is owed money (sender of invoice)
   function getReceivableInvoices(walletAddress: string): Invoice[] {
     return invoices.value.filter(
       (inv) =>
@@ -149,45 +313,33 @@ export function useInvoices() {
     );
   }
 
-  // simulate paying an invoice
-  async function payInvoice(invoiceId: string): Promise<boolean> {
-    loading.value = true;
-    // simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    const invoice = invoices.value.find((inv) => inv.id === invoiceId);
-    if (invoice && invoice.status === 'pending') {
-      invoice.status = 'paid';
-      invoice.paidAt = Date.now();
-      invoice.txSignature =
-        'simulated_tx_' + Math.random().toString(36).substring(7);
-      invoice.proofAvailable = true;
-      invoice.receiptHash = '0x' + Math.random().toString(16).substring(2, 66);
-      loading.value = false;
-      return true;
-    }
-
-    loading.value = false;
-    return false;
-  }
-
-  // get invoice by id
+  // Get single invoice by ID
   function getInvoiceById(id: string): Invoice | undefined {
     return invoices.value.find((inv) => inv.id === id);
+  }
+
+  // Clear error
+  function clearError(): void {
+    error.value = null;
   }
 
   return {
     invoices,
     loading,
+    error,
+    fetchInvoices,
+    createInvoice,
+    payInvoice,
+    cancelInvoice,
     getInvoicesForWallet,
     getPayableInvoices,
     getReceivableInvoices,
-    payInvoice,
     getInvoiceById,
+    clearError,
   };
 }
 
-// helper to format date
+// Helper to format date
 export function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleDateString('en-US', {
     year: 'numeric',
@@ -196,7 +348,7 @@ export function formatDate(timestamp: number): string {
   });
 }
 
-// helper to get status color
+// Helper to get status color
 export function getStatusColor(status: InvoiceStatus): string {
   switch (status) {
     case 'paid':
@@ -210,4 +362,20 @@ export function getStatusColor(status: InvoiceStatus): string {
     default:
       return '#6b7280';
   }
+}
+
+// Helper to generate payment reference hash
+export async function generatePaymentRef(
+  invoiceId: string,
+  sender: string,
+  recipient: string,
+  amount: number,
+  nonce: string
+): Promise<string> {
+  const data = `${invoiceId}:${sender}:${recipient}:${amount}:${nonce}`;
+  const encoder = new TextEncoder();
+  const dataBuffer = encoder.encode(data);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }

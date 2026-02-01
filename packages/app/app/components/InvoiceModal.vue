@@ -209,7 +209,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { type Invoice, formatDate, useInvoices } from '~/composables/useInvoices'
+import { type Invoice, type PayInvoiceInput, formatDate, useInvoices } from '~/composables/useInvoices'
+import { useToast } from '~/composables/useToast'
 
 const props = defineProps<{
   invoice: Invoice
@@ -219,10 +220,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'paid', invoice: Invoice): void
+  (e: 'paid', invoiceId: string, payment: PayInvoiceInput): void
 }>()
 
 const { payInvoice } = useInvoices()
+const toast = useToast()
 
 const paying = ref(false)
 const copiedTx = ref(false)
@@ -273,17 +275,29 @@ function shortenAddress(address: string): string {
 async function handlePay() {
   paying.value = true
   try {
-    const success = await payInvoice(props.invoice.id)
+    // For now, create a mock payment - later this will integrate with CT
+    const mockTxSignature = 'mock_tx_' + Math.random().toString(36).substring(2, 15)
+    const payment: PayInvoiceInput = {
+      txSignature: mockTxSignature,
+      paymentMethod: 'public', // Will be 'confidential' when CT is integrated
+    }
+
+    const success = await payInvoice(props.invoice.id, payment)
     if (success) {
-      emit('paid', props.invoice)
-      // refresh the invoice data
-      alert('Payment successful! ZK receipt is now available.')
+      emit('paid', props.invoice.id, payment)
+      toast.success('Payment Successful', {
+        message: `Paid $${props.invoice.amount} - ZK receipt is now available`,
+      })
     } else {
-      alert('Payment failed. Please try again.')
+      toast.error('Payment Failed', {
+        message: 'Please try again',
+      })
     }
   } catch (e) {
     console.error('payment error:', e)
-    alert('Payment failed. Please try again.')
+    toast.error('Payment Failed', {
+      message: 'An error occurred. Please try again.',
+    })
   } finally {
     paying.value = false
   }
@@ -295,8 +309,8 @@ function checkStatus() {
 }
 
 function viewOnExplorer() {
-  // open solana explorer (devnet for now)
-  const url = `https://explorer.solana.com/tx/${props.invoice.txSignature}?cluster=devnet`
+  // open solana explorer (local validator)
+  const url = `https://explorer.solana.com/tx/${props.invoice.txSignature}?cluster=custom&customUrl=http://127.0.0.1:8899`
   window.open(url, '_blank')
 }
 

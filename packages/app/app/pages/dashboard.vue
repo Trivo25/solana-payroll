@@ -190,7 +190,15 @@
         <ClientOnly>
           <div v-if="connected" class="invoices-section">
             <div class="section-header">
-              <h2 class="section-title">Invoices</h2>
+              <div class="section-header-left">
+                <h2 class="section-title">Invoices</h2>
+                <button class="btn btn-create-invoice" @click="showCreateInvoiceModal = true">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                  Create Invoice
+                </button>
+              </div>
               <div class="invoice-tabs">
                 <button
                   class="invoice-tab"
@@ -233,7 +241,13 @@
                   <path d="M16 18H32M16 26H28M16 34H24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 </svg>
               </div>
-              <p>No invoices found</p>
+              <p>No invoices yet</p>
+              <button class="btn btn-create-invoice-empty" @click="showCreateInvoiceModal = true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Create your first invoice
+              </button>
             </div>
           </div>
         </ClientOnly>
@@ -248,6 +262,15 @@
           @paid="handleInvoicePaid"
         />
 
+        <!-- Create Invoice Modal -->
+        <CreateInvoiceModal
+          :show="showCreateInvoiceModal"
+          :sender-wallet="publicKey?.toBase58() || ''"
+          :mint="testMint || 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'"
+          @close="showCreateInvoiceModal = false"
+          @created="handleInvoiceCreated"
+        />
+
         <!-- Onboarding Tour (shows on first visit) -->
         <OnboardingTour />
       </div>
@@ -258,7 +281,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useSupabase, type UserAccount } from '~/composables/useSupabase';
-import { useInvoices, type Invoice } from '~/composables/useInvoices';
+import { useInvoices, type Invoice, type PayInvoiceInput } from '~/composables/useInvoices';
+import { useConfidentialTransfer } from '~/composables/useConfidentialTransfer';
 
 const connected = ref(false);
 const publicKey = ref<any>(null);
@@ -303,15 +327,18 @@ async function generateMiniQRCode() {
 const { getAccount, uploadProfilePicture } = useSupabase();
 const {
   invoices,
+  fetchInvoices,
   getInvoicesForWallet,
   getPayableInvoices,
   getReceivableInvoices,
   payInvoice,
 } = useInvoices();
+const { testMint } = useConfidentialTransfer();
 
 const invoiceTab = ref<'all' | 'payable' | 'receivable'>('all');
 const selectedInvoice = ref<Invoice | null>(null);
 const showInvoiceModal = ref(false);
+const showCreateInvoiceModal = ref(false);
 
 const filteredInvoices = computed(() => {
   const walletAddress = publicKey.value?.toBase58() || '';
@@ -337,13 +364,21 @@ function closeInvoice() {
   selectedInvoice.value = null;
 }
 
-async function handleInvoicePaid(invoiceId: string) {
-  const success = await payInvoice(invoiceId);
+async function handleInvoicePaid(invoiceId: string, payment: PayInvoiceInput) {
+  const success = await payInvoice(invoiceId, payment);
   if (success) {
     const updated = invoices.value.find((inv) => inv.id === invoiceId);
     if (updated) {
       selectedInvoice.value = { ...updated };
     }
+  }
+}
+
+async function handleInvoiceCreated() {
+  // Refresh invoices after creation
+  const walletAddress = publicKey.value?.toBase58();
+  if (walletAddress) {
+    await fetchInvoices(walletAddress);
   }
 }
 
@@ -537,6 +572,7 @@ onMounted(async () => {
       fetchBalance(wallet.publicKey.value);
       fetchUsdcBalance(wallet.publicKey.value);
       fetchConfidentialBalance(wallet.publicKey.value);
+      fetchInvoices(address);
       checkAccount(address);
       generateMiniQRCode();
       startBalancePolling();
@@ -557,6 +593,7 @@ onMounted(async () => {
           fetchBalance(val);
           fetchUsdcBalance(val);
           fetchConfidentialBalance(val);
+          fetchInvoices(address);
           checkAccount(address);
           generateMiniQRCode();
           startBalancePolling();
@@ -1115,11 +1152,42 @@ function shortenAddress(address: string): string {
   gap: 1rem;
 }
 
+.section-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .section-title {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.01em;
+}
+
+.btn-create-invoice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, var(--secondary) 0%, #059669 100%);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-create-invoice:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-create-invoice:active {
+  transform: translateY(0);
 }
 
 .invoice-tabs {
@@ -1177,5 +1245,27 @@ function shortenAddress(address: string): string {
 .empty-state p {
   color: var(--text-muted);
   font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.btn-create-invoice-empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-create-invoice-empty:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
 }
 </style>
