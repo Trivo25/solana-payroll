@@ -132,36 +132,59 @@
                 <h4 class="options-title">What would you like to prove?</h4>
 
                 <label class="disclosure-option">
-                  <input type="checkbox" v-model="disclosureOptions.amountRange" />
+                  <input type="checkbox" v-model="disclosureOptions.revealInvoiceId" />
                   <span class="option-content">
-                    <span class="option-title">Amount Range</span>
-                    <span class="option-desc">Prove payment was within a certain range (e.g., > $1000)</span>
+                    <span class="option-title">Reveal Invoice ID</span>
+                    <span class="option-desc">Include invoice identifier in the proof (verifiers can see which invoice)</span>
                   </span>
                 </label>
 
                 <label class="disclosure-option">
-                  <input type="checkbox" v-model="disclosureOptions.paymentDate" />
+                  <input type="checkbox" v-model="disclosureOptions.revealRecipient" />
                   <span class="option-content">
-                    <span class="option-title">Payment Date</span>
-                    <span class="option-desc">Prove payment was made before/after a specific date</span>
+                    <span class="option-title">Reveal Recipient</span>
+                    <span class="option-desc">Include recipient wallet in the proof</span>
                   </span>
                 </label>
 
                 <label class="disclosure-option">
-                  <input type="checkbox" v-model="disclosureOptions.senderVerified" />
+                  <input type="checkbox" v-model="disclosureOptions.proveMinAmount" />
                   <span class="option-content">
-                    <span class="option-title">Sender Verification</span>
-                    <span class="option-desc">Prove payment came from a verified business</span>
+                    <span class="option-title">Prove Minimum Amount</span>
+                    <span class="option-desc">Prove payment was at least a certain amount</span>
                   </span>
                 </label>
 
+                <div v-if="disclosureOptions.proveMinAmount" class="amount-input-row">
+                  <label class="amount-label-inline">Min: $</label>
+                  <input
+                    type="number"
+                    v-model.number="disclosureOptions.minAmount"
+                    :max="invoice.amount"
+                    min="0"
+                    class="amount-input"
+                    placeholder="0"
+                  />
+                </div>
+
                 <label class="disclosure-option">
-                  <input type="checkbox" v-model="disclosureOptions.recipientOwnership" />
+                  <input type="checkbox" v-model="disclosureOptions.proveMaxAmount" />
                   <span class="option-content">
-                    <span class="option-title">Recipient Ownership</span>
-                    <span class="option-desc">Prove you are the recipient without revealing address</span>
+                    <span class="option-title">Prove Maximum Amount</span>
+                    <span class="option-desc">Prove payment was at most a certain amount</span>
                   </span>
                 </label>
+
+                <div v-if="disclosureOptions.proveMaxAmount" class="amount-input-row">
+                  <label class="amount-label-inline">Max: $</label>
+                  <input
+                    type="number"
+                    v-model.number="disclosureOptions.maxAmount"
+                    :min="invoice.amount"
+                    class="amount-input"
+                    placeholder="0"
+                  />
+                </div>
               </div>
 
               <button
@@ -202,6 +225,19 @@
                     <span class="info-value">{{ new Date(generatedReceipt.createdAt).toLocaleString() }}</span>
                   </div>
                 </div>
+
+                <!-- disclosed claims -->
+                <div class="disclosed-claims">
+                  <span class="claims-title">Verifiable claims:</span>
+                  <div class="claims-list">
+                    <span class="claim-badge" v-if="generatedReceipt.disclosure.revealInvoiceId">Invoice ID revealed</span>
+                    <span class="claim-badge" v-if="generatedReceipt.disclosure.revealRecipient">Recipient revealed</span>
+                    <span class="claim-badge" v-if="generatedReceipt.disclosure.minAmount">Amount &ge; ${{ generatedReceipt.disclosure.minAmount }}</span>
+                    <span class="claim-badge" v-if="generatedReceipt.disclosure.maxAmount">Amount &le; ${{ generatedReceipt.disclosure.maxAmount }}</span>
+                    <span class="claim-badge default">Valid payment proof</span>
+                  </div>
+                </div>
+
                 <div class="proof-actions">
                   <button class="action-btn primary" @click="handleDownloadProof">
                     Download Receipt
@@ -394,10 +430,12 @@ const generatingProof = computed(() => zkLoading.value)
 const proofGenerated = computed(() => generatedReceipt.value !== null)
 
 const disclosureOptions = ref({
-  amountRange: false,
-  paymentDate: false,
-  senderVerified: false,
-  recipientOwnership: false,
+  revealInvoiceId: false,
+  revealRecipient: false,
+  proveMinAmount: false,
+  proveMaxAmount: false,
+  minAmount: 0,
+  maxAmount: 0,
 })
 
 // Payment progress (reuse withdrawProgress from CT composable)
@@ -429,7 +467,11 @@ const canExecutePayment = computed(() => {
 
 // check if any disclosure options are selected
 const hasSelectedOptions = computed(() => {
-  return Object.values(disclosureOptions.value).some(v => v)
+  const opts = disclosureOptions.value
+  return opts.revealInvoiceId ||
+    opts.revealRecipient ||
+    opts.proveMinAmount ||
+    opts.proveMaxAmount
 })
 
 // Format balance helper
@@ -618,8 +660,17 @@ async function copyPaymentRef() {
 }
 
 async function generateProof() {
-  // Generate real ZK proof using NoirJS
-  const receipt = await generateReceipt(props.invoice)
+  // build disclosure options for the circuit
+  const opts = disclosureOptions.value
+  const disclosure = {
+    revealInvoiceId: opts.revealInvoiceId,
+    revealRecipient: opts.revealRecipient,
+    minAmount: opts.proveMinAmount ? opts.minAmount : undefined,
+    maxAmount: opts.proveMaxAmount ? opts.maxAmount : undefined,
+  }
+
+  // generate real ZK proof using NoirJS
+  const receipt = await generateReceipt(props.invoice, disclosure)
 
   if (receipt) {
     generatedReceipt.value = receipt
@@ -987,6 +1038,37 @@ function shareProof() {
   color: var(--text-muted);
 }
 
+.amount-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 1.75rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(15, 23, 42, 0.03);
+  border-radius: 8px;
+}
+
+.amount-label-inline {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.amount-input {
+  width: 120px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-family: inherit;
+}
+
+.amount-input:focus {
+  outline: none;
+  border-color: var(--secondary);
+}
+
 .generate-proof-btn {
   width: 100%;
   padding: 0.875rem;
@@ -1101,6 +1183,37 @@ function shareProof() {
 .proof-info-item .info-value {
   font-size: 0.75rem;
   color: var(--text-primary);
+}
+
+.disclosed-claims {
+  margin-bottom: 0.75rem;
+}
+
+.claims-title {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.claims-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.claim-badge {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+  background: rgba(16, 185, 129, 0.15);
+  color: #059669;
+  border-radius: 4px;
+}
+
+.claim-badge.default {
+  background: rgba(99, 102, 241, 0.15);
+  color: #6366f1;
 }
 
 .proof-actions {
