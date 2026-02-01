@@ -27,10 +27,11 @@ export default defineNuxtConfig({
     }
   },
 
-  // Route rules - disable SSR for pages that use Solana
+  // Route rules - disable SSR for pages that use Solana or ZK proofs
   routeRules: {
     '/dashboard': { ssr: false },
     '/connect': { ssr: false },
+    '/verify/**': { ssr: false },
   },
 
   runtimeConfig: {
@@ -63,8 +64,8 @@ export default defineNuxtConfig({
       wasm(),
       topLevelAwait(),
       nodePolyfills({
-        // Enable Buffer polyfill
-        include: ['buffer'],
+        // Enable polyfills for browser compatibility
+        include: ['buffer', 'crypto', 'stream'],
         globals: {
           Buffer: true,
           global: true,
@@ -85,16 +86,22 @@ export default defineNuxtConfig({
         'react': 'react',
         'react-dom': 'react-dom',
         'abort-controller': resolve(__dirname, 'node_modules/unenv/runtime/mock/empty.mjs'),
+        // Fix pino browser export issue from @aztec/bb.js
+        'pino': resolve(__dirname, 'app/shims/pino.ts'),
       }
     },
     optimizeDeps: {
       include: ['react', 'react-dom', 'solana-wallets-vue', '@solana/wallet-adapter-wallets', 'buffer'],
-      exclude: ['@solana/zk-sdk'],
+      exclude: ['@solana/zk-sdk', '@noir-lang/noir_js', '@aztec/bb.js'],
       esbuildOptions: {
         define: {
           global: 'globalThis'
         }
       }
+    },
+    // Allow importing JSON files (for circuit artifacts)
+    json: {
+      stringify: false,
     }
   }
 })

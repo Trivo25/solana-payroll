@@ -13,8 +13,10 @@
     "zk-proofs": "tsx scripts/test-zk-proofs.ts"
   },
   "dependencies": {
+    "@aztec/bb.js": "^2.1.11",
     "@noble/curves": "^1.9.1",
     "@noble/hashes": "^1.7.2",
+    "@noir-lang/noir_js": "1.0.0-beta.18",
     "@solana-program/token-2022": "^0.6.1",
     "@solana/kit": "^5.4.0",
     "@solana/spl-memo": "^0.2.5",
