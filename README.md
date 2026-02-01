@@ -76,3 +76,16 @@ Reipients can generate zk receipts using Noir that allows them to selectively di
 These proofs are generates locally on the "clients" machine and can be verified either on-chain or off-chain (e.g. by an accountant or tax auditor). They do not reveal any balances, business relationsihps or anything else.
 
 The recipient chooses what to reveal and what not!
+
+## ZK Receipts (Selective Disclosure Proofs)
+
+Prove you made a payment without revealing sensitive details. ZK receipts use Noir circuits to generate cryptographic proofs that can selectively disclose facts about a transaction.
+
+### What can you prove?
+
+| Proof Type       | What it proves                      | What stays hidden           |
+| ---------------- | ----------------------------------- | --------------------------- |
+| **Payment Made** | Valid payment exists for invoice    | Amount, sender, recipient   |
+| **Invoice Link** | Payment was for specific invoice ID | Amount, sender              |
+| **Recipient**    | Payment went to specific wallet     | Amount, sender              |
+| **Amount Range** | Payment was >= $X or ≤ $Y           | Exact amount, other parties |
