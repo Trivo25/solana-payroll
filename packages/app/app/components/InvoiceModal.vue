@@ -1429,7 +1429,7 @@ function shareProof() {
 .payment-method {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
+  gap: 0.875rem;
   padding: 1rem;
   background: white;
   border: 2px solid rgba(15, 23, 42, 0.08);
@@ -1453,8 +1453,44 @@ function shareProof() {
 }
 
 .payment-method input[type="radio"] {
-  margin-top: 0.25rem;
-  accent-color: #10b981;
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  max-width: 14px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 50%;
+  margin: 3px 0 0 0;
+  padding: 0;
+  flex-shrink: 0;
+  flex-grow: 0;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s;
+}
+
+.payment-method input[type="radio"]:checked {
+  border-color: #10b981;
+  background: #10b981;
+}
+
+.payment-method input[type="radio"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 5px;
+  height: 5px;
+  background: white;
+  border-radius: 50%;
+}
+
+.payment-method input[type="radio"]:disabled {
+  border-color: #e5e7eb;
+  cursor: not-allowed;
 }
 
 .method-content {
