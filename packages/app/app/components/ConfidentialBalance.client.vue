@@ -189,6 +189,7 @@
     </div>
 
     <!-- deposit modal -->
+    <Teleport to="body">
     <div
       v-if="showDepositModal"
       class="modal-overlay"
@@ -252,8 +253,10 @@
         </div>
       </div>
     </div>
+    </Teleport>
 
     <!-- withdraw modal -->
+    <Teleport to="body">
     <div
       v-if="showWithdrawModal"
       class="modal-overlay"
@@ -350,8 +353,10 @@
         </div>
       </div>
     </div>
+    </Teleport>
 
     <!-- transfer modal -->
+    <Teleport to="body">
     <div
       v-if="showTransferModal"
       class="modal-overlay"
@@ -472,6 +477,7 @@
         </div>
       </div>
     </div>
+    </Teleport>
   </div>
 </template>
 

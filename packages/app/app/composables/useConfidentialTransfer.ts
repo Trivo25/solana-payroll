@@ -1456,6 +1456,45 @@ export function useConfidentialTransfer() {
       );
 
       console.log(`[CT] Transferred ${amount} tokens confidentially, tx:`, sig);
+
+      // Fetch and log full transaction details to verify memo
+      try {
+        // Wait a moment for transaction to be indexed
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const txDetails = await connection.getTransaction(sig, {
+          maxSupportedTransactionVersion: 0,
+          commitment: 'confirmed',
+        });
+
+        if (txDetails) {
+          console.log('[CT] === TRANSACTION DETAILS ===');
+          console.log('[CT] Signature:', sig);
+          console.log('[CT] Slot:', txDetails.slot);
+          console.log('[CT] Fee:', txDetails.meta?.fee, 'lamports');
+
+          // Log all program logs
+          console.log('[CT] Program Logs:');
+          txDetails.meta?.logMessages?.forEach((log, i) => {
+            console.log(`[CT]   ${i}: ${log}`);
+          });
+
+          // Check for memo specifically
+          const memoLogs = txDetails.meta?.logMessages?.filter(log =>
+            log.includes('Memo') || log.includes('MemoSq4g')
+          );
+          if (memoLogs && memoLogs.length > 0) {
+            console.log('[CT] ✓ Memo found in transaction:');
+            memoLogs.forEach(log => console.log('[CT]   ', log));
+          } else if (memo) {
+            console.log('[CT] ⚠ Memo was provided but not found in logs');
+          }
+
+          console.log('[CT] ==============================');
+        }
+      } catch (fetchErr) {
+        console.log('[CT] Could not fetch transaction details:', fetchErr);
+      }
+
       return sig;
     } catch (e: any) {
       error.value = e.message || 'Failed to transfer';
