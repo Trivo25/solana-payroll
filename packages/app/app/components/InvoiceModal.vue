@@ -119,7 +119,10 @@
 
             <div v-if="invoice.proofAvailable" class="proof-available">
               <div class="proof-badge-large">
-                <span class="proof-icon">&#x1F6E1;</span>
+                <svg class="proof-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  <path d="M9 12l2 2 4-4"/>
+                </svg>
                 <span>Zero-Knowledge Receipt Available</span>
               </div>
 
@@ -1100,7 +1103,7 @@ function shareProof() {
 }
 
 .proof-badge-large .proof-icon {
-  font-size: 1.25rem;
+  flex-shrink: 0;
 }
 
 .proof-description {
@@ -1137,9 +1140,38 @@ function shareProof() {
   background: rgba(15, 23, 42, 0.03);
 }
 
-.disclosure-option input {
-  margin-top: 0.125rem;
-  accent-color: var(--secondary);
+.disclosure-option input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 4px;
+  margin: 2px 0 0 0;
+  padding: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.15s;
+}
+
+.disclosure-option input[type="checkbox"]:checked {
+  border-color: #10b981;
+  background: #10b981;
+}
+
+.disclosure-option input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 4px;
+  height: 8px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .option-content {

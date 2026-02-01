@@ -308,25 +308,19 @@ const {
 } = useConfidentialTransfer()
 const toast = useToast()
 
-// wallet state (initialized in onMounted)
+// wallet state
 const walletReady = ref(false)
 const connected = ref(false)
 const publicKey = ref<any>(null)
-
-// wallet composable reference (set in onMounted)
 let walletComposable: any = null
-
-// wallet functions (set in onMounted)
 let walletSelect: (name: string) => void = () => {}
 let walletConnect: () => Promise<void> = async () => {}
 let walletDisconnect: () => Promise<void> = async () => {}
 
-// Get fresh adapter reference (avoids private field issues)
 function getWalletAdapter() {
   return walletComposable?.wallet?.value?.adapter || null
 }
 
-// state
 const invoice = ref<Invoice | null>(null)
 const paymentMethod = ref<'public' | 'confidential'>('confidential')
 const ctBalance = ref(0)
@@ -337,7 +331,6 @@ const txSignature = ref('')
 const showWalletList = ref(false)
 const walletList = ref<Array<{ name: string; icon: string; readyState: string }>>([])
 
-// computed
 const walletAddress = computed(() => publicKey.value?.toBase58() || '')
 
 const isOverdue = computed(() => {
@@ -373,7 +366,6 @@ const successExplorerUrl = computed(() => {
   return `https://explorer.solana.com/tx/${txSignature.value}?cluster=custom&customUrl=http://127.0.0.1:8899`
 })
 
-// helpers
 function shortenAddress(addr: string): string {
   if (!addr) return ''
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`
@@ -397,27 +389,14 @@ async function selectWallet(walletName: string) {
   }
 }
 
-// load balances when wallet connects
 async function loadBalances() {
   const adapter = getWalletAdapter()
-  if (!connected.value || !adapter) {
-    console.log('[Pay] loadBalances skipped - connected:', connected.value, 'adapter:', !!adapter)
-    return
-  }
+  if (!connected.value || !adapter) return
 
   try {
-    // Initialize mint reference (uses deterministic address)
-    const mintAddr = initializeMint()
-    console.log('[Pay] Mint initialized:', mintAddr)
-
-    // Derive ElGamal keys from wallet signature (required for confidential balance)
-    // This will prompt the user to sign a message
-    console.log('[Pay] Deriving ElGamal keys...')
+    initializeMint()
     await deriveElGamalKeypair(adapter)
-    console.log('[Pay] ElGamal keys derived successfully')
 
-    // Now we can fetch balances
-    console.log('[Pay] Fetching balances...')
     const [ct, pub] = await Promise.all([
       getConfidentialBalance(adapter, 'USDC'),
       getPublicBalance(adapter, 'USDC'),
@@ -425,19 +404,15 @@ async function loadBalances() {
     ctBalance.value = ct
     publicBalance.value = pub
 
-    console.log('[Pay] Balances loaded - CT:', ct, 'Public:', pub)
-
-    // default to public if can't pay confidential
     if (!canPayConfidential.value && publicBalance.value >= (invoice.value?.amount || 0)) {
       paymentMethod.value = 'public'
     }
   } catch (e: any) {
-    console.error('[Pay] Failed to load balances:', e)
+    console.error('failed to load balances:', e)
     toast.error('Failed to load balances', { message: e.message || 'Please try reconnecting your wallet' })
   }
 }
 
-// handle payment
 async function handlePay() {
   const adapter = getWalletAdapter()
   if (!invoice.value || !adapter) return
@@ -450,7 +425,6 @@ async function handlePay() {
     let paymentRefHash: string | undefined
 
     if (paymentMethod.value === 'confidential') {
-      // derive deterministic nonce
       paymentNonce = await derivePaymentNonce(adapter, invoice.value.id)
       paymentRefHash = await generatePaymentRef(
         invoice.value.id,
@@ -459,7 +433,6 @@ async function handlePay() {
         invoice.value.amount,
         paymentNonce
       )
-
       sig = await transferConfidential(
         adapter,
         invoice.value.sender,
@@ -467,12 +440,11 @@ async function handlePay() {
         paymentRefHash
       )
     } else {
-      // public transfer mock
+      // mock public transfer
       sig = 'public_' + Math.random().toString(36).substring(2, 15)
       await new Promise(r => setTimeout(r, 1500))
     }
 
-    // update invoice in db
     const payment: PayInvoiceInput = {
       txSignature: sig,
       paymentMethod: paymentMethod.value,
@@ -485,13 +457,12 @@ async function handlePay() {
     if (success) {
       txSignature.value = sig
       showSuccess.value = true
-      // refresh invoice
       invoice.value = await fetchInvoiceById(invoice.value.id)
     } else {
       toast.error('Payment recorded but invoice update failed')
     }
   } catch (e: any) {
-    console.error('Payment error:', e)
+    console.error('payment error:', e)
     toast.error('Payment Failed', { message: e.message || 'Please try again' })
   } finally {
     paying.value = false
@@ -502,19 +473,16 @@ function closeSuccess() {
   showSuccess.value = false
 }
 
-// load invoice and initialize wallet on mount
 onMounted(async () => {
-  // Load invoice first
   const invoiceId = route.params.id as string
   if (invoiceId) {
     invoice.value = await fetchInvoiceById(invoiceId)
   }
 
-  // Initialize wallet (dynamic import to avoid SSR issues)
+  // dynamic import to avoid ssr issues
   try {
     const { initWallet, useWallet } = await import('solana-wallets-vue')
 
-    // Check if wallet is already initialized
     let wallet
     let needsInit = false
     try {
@@ -523,7 +491,6 @@ onMounted(async () => {
       needsInit = true
     }
 
-    // Only import adapters and initialize if needed
     if (needsInit) {
       const {
         PhantomWalletAdapter,
@@ -542,24 +509,17 @@ onMounted(async () => {
       wallet = useWallet()
     }
 
-    // Helper to map wallet adapters to plain objects
-    const mapWallets = (rawWallets: any[]) => {
-      return rawWallets.map(w => ({
-        name: w.adapter.name,
-        icon: w.adapter.icon,
-        readyState: w.readyState,
-      }))
-    }
+    const mapWallets = (rawWallets: any[]) => rawWallets.map(w => ({
+      name: w.adapter.name,
+      icon: w.adapter.icon,
+      readyState: w.readyState,
+    }))
 
-    // Store wallet composable reference (for fresh adapter access)
     walletComposable = wallet
-
-    // Set up reactive bindings
     connected.value = wallet.connected.value
     publicKey.value = wallet.publicKey.value
     walletList.value = mapWallets(wallet.wallets.value || [])
 
-    // Watch for changes
     watch(() => wallet.connected.value, (val) => {
       connected.value = val
       if (val) loadBalances()
@@ -567,17 +527,15 @@ onMounted(async () => {
     watch(() => wallet.publicKey.value, (val) => { publicKey.value = val })
     watch(() => wallet.wallets.value, (val) => { walletList.value = mapWallets(val || []) })
 
-    // Store functions
     walletSelect = wallet.select
     walletConnect = wallet.connect
     walletDisconnect = wallet.disconnect
 
-    // If already connected, load balances
     if (wallet.connected.value) {
       await loadBalances()
     }
   } catch (e) {
-    console.error('Failed to initialize wallet:', e)
+    console.error('failed to initialize wallet:', e)
   } finally {
     walletReady.value = true
   }
