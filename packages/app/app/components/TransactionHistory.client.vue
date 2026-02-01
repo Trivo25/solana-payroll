@@ -155,17 +155,22 @@ function formatTime(timestamp: number): string {
 }
 
 .clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
   background: none;
   border: none;
-  font-size: 0.875rem;
+  border-radius: 6px;
   cursor: pointer;
-  opacity: 0.4;
-  padding: 0.25rem;
-  transition: opacity 0.2s;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
 }
 
 .clear-btn:hover {
-  opacity: 1;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }
 
 .empty-state {
@@ -189,7 +194,7 @@ function formatTime(timestamp: number): string {
 .transaction-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
   max-height: 300px;
   overflow-y: auto;
 }
@@ -199,29 +204,15 @@ function formatTime(timestamp: number): string {
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.6);
+  background: white;
+  border: 1px solid rgba(15, 23, 42, 0.06);
   border-radius: 8px;
-  transition: background 0.2s;
+  transition: all 0.2s ease;
 }
 
 .transaction-item:hover {
-  background: rgba(255, 255, 255, 0.9);
-}
-
-.transaction-item.deposit {
-  border-left: 2px solid #f59e0b;
-}
-
-.transaction-item.apply {
-  border-left: 2px solid #10b981;
-}
-
-.transaction-item.withdraw {
-  border-left: 2px solid #6366f1;
-}
-
-.transaction-item.transfer {
-  border-left: 2px solid #10b981;
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .tx-icon {
@@ -236,24 +227,34 @@ function formatTime(timestamp: number): string {
   color: var(--text-secondary);
 }
 
+.tx-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
 .tx-icon.deposit {
-  background: rgba(245, 158, 11, 0.1);
+  background: rgba(245, 158, 11, 0.12);
   color: #f59e0b;
 }
 
 .tx-icon.apply {
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(16, 185, 129, 0.12);
   color: #10b981;
 }
 
 .tx-icon.withdraw {
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(99, 102, 241, 0.12);
   color: #6366f1;
 }
 
 .tx-icon.transfer {
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(16, 185, 129, 0.12);
   color: #10b981;
+}
+
+.tx-icon.mint {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
 }
 
 .tx-details {
@@ -263,7 +264,7 @@ function formatTime(timestamp: number): string {
 
 .tx-type {
   font-size: 0.7rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -271,19 +272,20 @@ function formatTime(timestamp: number): string {
 }
 
 .tx-time {
-  font-size: 0.6rem;
+  font-size: 0.625rem;
   color: var(--text-muted);
 }
 
 .tx-amount {
   font-size: 0.75rem;
   font-weight: 600;
-  font-family: var(--font-mono, monospace);
+  font-family: 'JetBrains Mono', monospace;
   flex-shrink: 0;
 }
 
 .tx-amount.deposit,
-.tx-amount.apply {
+.tx-amount.apply,
+.tx-amount.mint {
   color: #10b981;
 }
 
@@ -296,14 +298,25 @@ function formatTime(timestamp: number): string {
 }
 
 .tx-link {
-  font-size: 0.75rem;
-  opacity: 0.5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  color: var(--text-muted);
   text-decoration: none;
   flex-shrink: 0;
-  transition: opacity 0.2s;
+  transition: all 0.15s ease;
+}
+
+.tx-link svg {
+  width: 12px;
+  height: 12px;
 }
 
 .tx-link:hover {
-  opacity: 1;
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--text-secondary);
 }
 </style>
