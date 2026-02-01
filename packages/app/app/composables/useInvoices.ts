@@ -364,7 +364,11 @@ export function getStatusColor(status: InvoiceStatus): string {
   }
 }
 
+// Maximum preimage length (must match Noir circuit's MAX_PREIMAGE_LEN)
+const MAX_PREIMAGE_LEN = 256;
+
 // Helper to generate payment reference hash
+// IMPORTANT: Uses zero-padded preimage to match the Noir ZK circuit
 export async function generatePaymentRef(
   invoiceId: string,
   sender: string,
@@ -375,9 +379,49 @@ export async function generatePaymentRef(
   const data = `${invoiceId}:${sender}:${recipient}:${amount}:${nonce}`;
   const encoder = new TextEncoder();
   const dataBuffer = encoder.encode(data);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+
+  // Pad to MAX_PREIMAGE_LEN bytes (matching Noir circuit)
+  const paddedBuffer = new Uint8Array(MAX_PREIMAGE_LEN);
+  paddedBuffer.set(dataBuffer);
+  // Rest is already zero-filled
+
+  const hashBuffer = await crypto.subtle.digest('SHA-256', paddedBuffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+  // Return full 32-byte hash as hex (64 chars)
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Get the preimage bytes for ZK proof generation.
+ * Returns the padded preimage as a Uint8Array (256 bytes).
+ */
+export function getPaymentPreimage(
+  invoiceId: string,
+  sender: string,
+  recipient: string,
+  amount: number,
+  nonce: string
+): Uint8Array {
+  const data = `${invoiceId}:${sender}:${recipient}:${amount}:${nonce}`;
+  const encoder = new TextEncoder();
+  const dataBuffer = encoder.encode(data);
+
+  // Pad to MAX_PREIMAGE_LEN bytes (matching Noir circuit)
+  const paddedBuffer = new Uint8Array(MAX_PREIMAGE_LEN);
+  paddedBuffer.set(dataBuffer);
+
+  return paddedBuffer;
+}
+
+/**
+ * Parse a hex string to Uint8Array (for payment_ref verification).
+ */
+export function hexToBytes(hex: string): Uint8Array {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+  }
+  return bytes;
 }
 
 /**
