@@ -1,6 +1,12 @@
 # Veil - Private Transactions on Solana
 
+** It is hightly recommended to set up a sandbox environment/a dummy Phantom wallet and try it our yourself for the full experience**
+
 The project is deployed to: https://solana-payroll-app.vercel.app
+
+It uses the `https://zk-edge.surfnet.dev/` network since CT are not enabled on mainnet or devnet.
+
+Here's one CT done on zk-edge-surfnet through Veil: https://explorer.solana.com/tx/2gqvJi7VD6PVbLuRQDW1pd7y1qvdxMdGTmsvbg1ist4KuucKrewZ44YayBgNFiYJ2rLb4adyLTsHz5EgAWaioejr?cluster=custom&customUrl=https://zk-edge.surfnet.dev:8899
 
 Keep in mind to ONLY use a dummy private key - never your real private keys. It is recommended to connect via Phantom.
 
