@@ -1,6 +1,6 @@
 # Veil - Private Transactions on Solana
 
-** It is hightly recommended to set up a sandbox environment/a dummy Phantom wallet and try it our yourself for the full experience**
+**It is hightly recommended to set up a sandbox environment/a dummy Phantom wallet and try it our yourself for the full experience**
 
 The project is deployed to: https://solana-payroll-app.vercel.app
 
