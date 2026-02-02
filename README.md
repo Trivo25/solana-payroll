@@ -8,6 +8,8 @@ It uses the `https://zk-edge.surfnet.dev/` network since CT are not enabled on m
 
 Here's one CT done on zk-edge-surfnet through Veil: https://explorer.solana.com/tx/2gqvJi7VD6PVbLuRQDW1pd7y1qvdxMdGTmsvbg1ist4KuucKrewZ44YayBgNFiYJ2rLb4adyLTsHz5EgAWaioejr?cluster=custom&customUrl=https://zk-edge.surfnet.dev:8899
 
+And here' sthe token Mint: https://explorer.solana.com/address/Dbz8dLkGA6PErb4VxRFr8GDdk27J9YLVbFCmhq7bdtPH?cluster=custom&customUrl=https%3A%2F%2Fzk-edge.surfnet.dev%3A8899
+
 Keep in mind to ONLY use a dummy private key - never your real private keys. It is recommended to connect via Phantom.
 
 > Your private financial layer on Solana. Like Wise, but on-chain and truly private.
